@@ -1,7 +1,15 @@
-#ユビキタ初音ミク計画
+# ユビキタ初音ミクアプリ
+このアプリは初音ミクと会話できることを目的としたAndroidアプリです。
 
-##About
-ミクさんとの会話を目的としたアプリ。現在は簡単な挨拶が可能。
+## Description
+概要はこちら→https://sites.google.com/view/aquahp/project?authuser=0
 
-##Future
-Playストアへの公開を行う予定。
+## Future Releases
+Playストアで公開する予定です。
+
+## Contribution
+1. Fork it  
+2. Create your feature branch  
+3. Commit your changes  
+4. Push to the branch  
+5. Create new Pull Request
