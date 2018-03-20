@@ -77,7 +77,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 }
                 break;
             } else {
-                textView.setText("You > " + your_talk + "\nMiku > 「" + your_talk + "」という言葉はまだ分かりません。ごめんね。");
+                textView.setText("You > " + your_talk + "\nMiku > 「" + your_talk + "」という言葉は分かりません。ごめんね。");
                 imageView.setImageResource(R.drawable.normal);
             }
         }
