@@ -1,5 +1,5 @@
 # ユビキタ初音ミクアプリ
-このアプリは初音ミクと会話できることを目的としたAndroidアプリです。
+このアプリは初音ミクと会話できることを目的としたAndroidアプリケーションです。
 
 ## Description
 概要はこちら→https://sites.google.com/view/aquahp/project?authuser=0
