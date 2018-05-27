@@ -1,9 +1,30 @@
-# ユビキタ初音ミクアプリ
-このアプリは初音ミクと会話できることを目的としたAndroidアプリケーションです。
+ユビキタ初音ミクアプリ [Version 1.0]
+====
 
-## Description
-概要はこちら→https://sites.google.com/view/aquahp/portforio/youbimiku
+## 説明
+朝から晩まで初音ミクと一緒にいられるアプリです。
 
-## Future Releases
-Playストアで公開する予定です。
+## デモ
+![v1.0](https://github.com/Aqua-ix/Pictures/blob/YoubiMiku/v1.gif "v1.0")
 
+## 動作環境
+Android 4.3以上
+Android 7.0以上推奨
+
+## 利用方法
+テキストボックスに文字を入力し、OKボタンを押すと初音ミクが返答します。
+返答はCSVのリストによって単語(ひらがな)に対応しています。
+### 例
+「おはよう」が含まれる文章→おはようございます、マスター
+
+返答によって初音ミクの表情が変化します。表情には喜怒哀楽の4種類があります。
+
+
+### 展望
+- LINE風インターフェースの搭載
+- 好感度システムの導入
+- 時間による反応の変化
+
+## 作成者
+
+[AQUA](https://github.com/Aqua_ix)
