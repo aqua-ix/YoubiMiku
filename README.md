@@ -8,7 +8,7 @@
 ![v1.0](https://github.com/Aqua-ix/Pictures/blob/YoubiMiku/v1.gif "v1.0")
 
 ## 動作環境
-Android 4.3以上
+Android 4.3以上必須
 Android 7.0以上推奨
 
 ## 利用方法
