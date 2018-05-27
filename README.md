@@ -27,4 +27,4 @@ Android 7.0以上推奨
 
 ## 作成者
 
-[AQUA](https://github.com/Aqua_ix)
+[AQUA](https://github.com/Aqua-ix)
