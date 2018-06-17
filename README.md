@@ -5,7 +5,8 @@
 朝から晩まで初音ミクと一緒にいられるアプリです。
 
 ## デモ
-![v2.0](https://github.com/Aqua-ix/Pictures/blob/YoubiMiku/v2.0.gif)
+
+<img src="https://github.com/Aqua-ix/Pictures/blob/YoubiMiku/v2.0.gif" width="320px">
 
 ## 動作環境
 Android 4.3以上必須
