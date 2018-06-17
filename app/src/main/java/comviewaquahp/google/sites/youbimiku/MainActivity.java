@@ -2,6 +2,8 @@ package comviewaquahp.google.sites.youbimiku;
 
 import android.content.Intent;
 import android.content.res.AssetManager;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.support.v7.widget.LinearLayoutCompat;
@@ -12,6 +14,9 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.EditText;
 
+import com.github.bassaer.chatmessageview.model.Message;
+import com.github.bassaer.chatmessageview.view.ChatView;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -20,75 +25,74 @@ import java.io.InputStreamReader;
 import static android.R.id.button1;
 import static android.R.id.edit;
 import static android.R.id.list;
+import static android.R.id.message;
 import static comviewaquahp.google.sites.youbimiku.R.string.defaultText;
 
-public class MainActivity extends AppCompatActivity implements View.OnClickListener {
 
-    private TextView textView;
-    private EditText editText;
+public class MainActivity extends AppCompatActivity {
+
+    private ChatView mChatView;
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
+    public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        Button ok = (Button) findViewById(R.id.ok_Button);
-        Button resetButton = (Button) findViewById(R.id.reset_Button);
+        //User id
+        int masterId = 0;
+        //User icon
+        //not using
+        Bitmap masterIcon = null;
+        //User name
+        String masterName = "Master";
 
-        ok.setOnClickListener (this);
-        resetButton.setOnClickListener (this);
+        int mikuId = 1;
+        Bitmap mikuIcon = BitmapFactory.decodeResource(getResources(), R.drawable.normal);
+        String mikuName = "Miku";
+
+        final User master = new User(masterId, masterName, masterIcon);
+        final User miku = new User(mikuId, mikuName, mikuIcon);
+
+        mChatView = (ChatView) findViewById(R.id.chat_view);
+
+        Message init = new Message.Builder()
+                .setUser(miku)
+                .setRight(false) // This message Will be shown left side.
+                .setText("こんにちは!")//Message contents
+                .build();
+
+        mChatView.receive(init);// Will be shown left side
+
+        mChatView.setOnClickSendButtonListener(new View.OnClickListener() {
+
+            @Override
+            public void onClick(View view) {
+
+                MikuTalk mikuTalk = new MikuTalk();
+                MikuFace mikuFace = new MikuFace();
+
+                Message m1 = new Message.Builder()
+                        .setUser(master) // Sender
+                        .setRight(true) // This message Will be shown right side.
+                        .setText(mChatView.getInputText()) //Message contents
+                        .hideIcon(true)
+                        .build();
+
+                mChatView.send(m1); // Will be shown right side
+                mChatView.setInputText("");
+
+                miku.setIcon(mikuFace.face(m1.getText(), getResources(),getApplicationContext()));
+
+                Message m2 = new Message.Builder()
+                        .setUser(miku)
+                        .setRight(false) // This message Will be shown left side.
+                        .setText(mikuTalk.talk(m1.getText(),getApplicationContext()))//Message contents
+                        .build();
+
+                mChatView.receive(m2);// Will be shown left side
+            }
+
+        });
 
     }
-
-    @Override
-    public void onClick(View v){
-        EditText editText = (EditText) findViewById(R.id.yourText);
-        TextView textView = (TextView)findViewById(R.id.MikuTalk);
-        ImageView imageView = (ImageView)findViewById(R.id.face);
-        String miku_talk;
-        String your_talk = editText.getText().toString();
-        editText.setText("");
-
-        talkReader t = new talkReader();
-        t.reader(getApplicationContext());
-        ListData data = new ListData();
-
-        for(int i=1;i<t.talk.size();i++) {
-            data = t.talk.get(i);
-            miku_talk = data.getMiku();
-            if(your_talk.equals("")){
-                textView.setText("You > \nMiku > 何か用かな?");
-                imageView.setImageResource(R.drawable.normal);
-                break;
-            }
-            else if (your_talk.contains(data.getYou())) {
-                textView.setText("You > " + your_talk + "\nMiku > " + miku_talk);
-                if(data.getFace().equals("N")){
-                imageView.setImageResource(R.drawable.normal);
-                }
-                else if(data.getFace().equals("G")){
-                    imageView.setImageResource(R.drawable.glad);
-                }
-                else if(data.getFace().equals("A")){
-                    imageView.setImageResource(R.drawable.angry);
-                }
-                else if(data.getFace().equals("S")){
-                    imageView.setImageResource(R.drawable.sad);
-                }
-                break;
-            } else {
-                textView.setText("You > " + your_talk + "\nMiku > 「" + your_talk + "」という言葉は分かりません。ごめんね。");
-                imageView.setImageResource(R.drawable.normal);
-            }
-        }
-
-        if(v.getId()==R.id.reset_Button) {
-            textView.setText(defaultText);
-            editText.setText("");
-            imageView.setImageResource(R.drawable.normal);
-        }
-
-    }
-
-
 }
