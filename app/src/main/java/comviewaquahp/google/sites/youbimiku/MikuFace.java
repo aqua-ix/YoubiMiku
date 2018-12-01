@@ -6,7 +6,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 
 /**
- * Created by Lenovo on 2018/06/17.
+ * Created by Soichi Ikebe on 2018/06/17.
  */
 
 class MikuFace {

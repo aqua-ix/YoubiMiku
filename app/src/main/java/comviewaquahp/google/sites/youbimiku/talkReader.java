@@ -11,7 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Created by Lenovo on 2018/01/24.
+ * Created by Soichi Ikebe on 2018/01/24.
  */
 
 public class talkReader {

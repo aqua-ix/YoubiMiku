@@ -3,7 +3,7 @@ package comviewaquahp.google.sites.youbimiku;
 import android.content.Context;
 
 /**
- * Created by Lenovo on 2018/06/17.
+ * Created by Soichi Ikebe on 2018/06/17.
  */
 
 class MikuTalk {

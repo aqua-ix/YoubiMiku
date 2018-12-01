@@ -1,15 +1,12 @@
 package comviewaquahp.google.sites.youbimiku;
 
 /**
- * Created by Lenovo on 2018/06/17.
+ * Created by Soichi Ikebe on 2018/06/17.
  */
 
 import android.graphics.Bitmap;
 
 import com.github.bassaer.chatmessageview.model.IChatUser;
-
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 public class User implements IChatUser {
     Integer id;
@@ -22,19 +19,16 @@ public class User implements IChatUser {
         this.icon = icon;
     }
 
-    @NotNull
     @Override
     public String getId() {
         return this.id.toString();
     }
 
-    @Nullable
     @Override
     public String getName() {
         return this.name;
     }
 
-    @Nullable
     @Override
     public Bitmap getIcon() {
         return this.icon;

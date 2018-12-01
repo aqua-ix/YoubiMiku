@@ -1,7 +1,7 @@
 package comviewaquahp.google.sites.youbimiku;
 
 /**
- * Created by Lenovo on 2018/01/24.
+ * Created by Soichi Ikebe on 2018/01/24.
  */
 
 public class ListData {
