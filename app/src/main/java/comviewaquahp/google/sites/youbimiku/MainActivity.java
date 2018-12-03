@@ -1,33 +1,12 @@
 package comviewaquahp.google.sites.youbimiku;
 
-import android.content.Intent;
-import android.content.res.AssetManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.support.v7.widget.LinearLayoutCompat;
 import android.view.View;
-import android.widget.Button;
-import android.widget.ImageView;
-import android.widget.LinearLayout;
-import android.widget.TextView;
-import android.widget.EditText;
-
 import com.github.bassaer.chatmessageview.model.Message;
 import com.github.bassaer.chatmessageview.view.ChatView;
-
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-
-import static android.R.id.button1;
-import static android.R.id.edit;
-import static android.R.id.list;
-import static android.R.id.message;
-import static comviewaquahp.google.sites.youbimiku.R.string.defaultText;
-
 
 public class MainActivity extends AppCompatActivity {
 
