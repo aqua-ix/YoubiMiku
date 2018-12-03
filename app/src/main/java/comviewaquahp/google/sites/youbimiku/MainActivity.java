@@ -1,16 +1,13 @@
 package comviewaquahp.google.sites.youbimiku;
 
-import android.app.Activity;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.Bundle;
 import android.view.View;
-
 import com.github.bassaer.chatmessageview.model.Message;
 import com.github.bassaer.chatmessageview.view.ChatView;
 
-
-public class MainActivity extends Activity {
+public class MainActivity extends AppCompatActivity {
 
     private ChatView mChatView;
 
