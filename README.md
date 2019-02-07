@@ -12,7 +12,8 @@ Android 4.3以上必須
 Android 7.0以上推奨
 
 ## 利用方法
-当リポジトリをクローンし、Android Studioで読み込んでください。
+Play Storeよりダウンロードしてください。
+https://play.google.com/store/apps/details?id=comviewaquahp.google.sites.youbimiku
 
 テキストボックスに文字を入力し、送信ボタンを押すと初音ミクが返答します。
 返答はCSVのリストによって単語(ひらがな)に対応しています。
