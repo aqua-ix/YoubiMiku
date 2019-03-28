@@ -34,6 +34,7 @@ https://play.google.com/store/apps/details?id=comviewaquahp.google.sites.youbimi
 - 予定登録
 - 画像送信
 - DB導入
+- オススメ曲の表示(APIを用いる)
 
 ## 作成者
 
