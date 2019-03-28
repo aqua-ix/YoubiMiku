@@ -22,11 +22,12 @@ https://play.google.com/store/apps/details?id=comviewaquahp.google.sites.youbimi
 
 返答によって初音ミクの表情が変化します。表情には喜怒哀楽の4種類があります。
 
-
-## 展望
-- 好感度システムの導入
-- 時間による反応の変化
-- Playストアでの公開
+## ToDo for Version3.0
+[] 好感度システム導入
+[] 時間帯による反応変化
+[] 予定登録
+[] 画像送信
+[] DB導入
 
 ## 更新履歴
 ### 2018/06/17 version2.0
