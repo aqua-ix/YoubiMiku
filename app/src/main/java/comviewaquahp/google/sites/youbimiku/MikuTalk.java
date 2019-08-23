@@ -19,7 +19,7 @@ class MikuTalk {
 
         String miku_talk;
         String your_talk = s;
-        String message = "何か用ですか?";
+        String message = "ごめんなさい、ちょっと難しいです... ひらがななら反応できるかも！";
 
         for(int i=1;i<t.talk.size();i++) {
             data = t.talk.get(i);
