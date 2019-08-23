@@ -22,11 +22,11 @@ public class MainActivity extends AppCompatActivity {
         //not using
         Bitmap masterIcon = null;
         //User name
-        String masterName = "Master";
+        String masterName = "あなた";
 
         int mikuId = 1;
         Bitmap mikuIcon = BitmapFactory.decodeResource(getResources(), R.drawable.normal);
-        String mikuName = "Miku";
+        String mikuName = "初音ミク";
 
         final User master = new User(masterId, masterName, masterIcon);
         final User miku = new User(mikuId, mikuName, mikuIcon);
@@ -36,10 +36,26 @@ public class MainActivity extends AppCompatActivity {
         Message init = new Message.Builder()
                 .setUser(miku)
                 .setRight(false) // This message Will be shown left side.
-                .setText("こんにちは!")//Message contents
+                .setText("こんにちは!まだ開発中なので上手く答えられないかもしれません。その時はごめんなさい...")//Message contents
                 .build();
 
-        mChatView.receive(init);// Will be shown left side
+        mChatView.receive(init);
+
+        Message init2 = new Message.Builder()
+                .setUser(miku)
+                .setRight(false) // This message Will be shown left side.
+                .setText("ご意見・ご要望は[aquapinfo@gmail.com]まで！")//Message contents
+                .build();
+
+        mChatView.receive(init2);
+
+        Message init3 = new Message.Builder()
+                .setUser(miku)
+                .setRight(false) // This message Will be shown left side.
+                .setText("下の入力欄に何か入れてね。\nひらがなだと上手く反応できます。\nボカロPさんの名前もわかるかも...?")//Message contents
+                .build();
+
+        mChatView.receive(init3);
 
         mChatView.setOnClickSendButtonListener(new View.OnClickListener() {
 
