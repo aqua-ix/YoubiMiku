@@ -1,5 +1,3 @@
 <resources>
-    <string name="app_name">YoubiMiku</string>
-    <string name="hintText">ミクさんに話しかけよう</string>
-    <string name="defaultText">You > \nMiku > ようこそ、マスター</string>
+    <string name="app_name">ユビキタ初音ミク</string>
 </resources>
