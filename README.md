@@ -13,7 +13,7 @@ UIを一新し、チャット形式で会話ができるようにしました。
 朝から晩まで初音ミクと一緒にいられるアプリです。
 
 ## デモ
-<img src="https://github.com/Aqua-ix/YoubiMiku/v2.0_demo.gif" width="320px">
+<img src="https://github.com/Aqua-ix/YoubiMiku/blob/master/v2.0_demo.gif" width="320px">
 
 ## 動作環境
 Android 4.3以上必須
