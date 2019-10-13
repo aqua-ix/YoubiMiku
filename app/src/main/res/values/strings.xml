@@ -1,3 +1,12 @@
 <resources>
-    <string name="app_name">ユビキタ初音ミク</string>
+    <string name="app_name">YoubiMiku</string>
+    <string name="miku_name">Hatsune Miku</string>
+
+    <string name="tutorial_welcome">Hello!</string>
+    <string name="tutorial_whats_your_name">Hou can I call you?</string>
+    <string name="tutorial_name_is_empty">Sorry, try again.</string>
+    <string name="tutorial_nice_to_meet_you">! Nice to meet you. \nUnfortunately, English is not currently supported. I can only speak Japanese like \"こんにちは\".</string>
+    <string name="tutorial_how_to_reset_name">The name will be reset when you exit the app.</string>
+
+    <string name="non_empty_query" translatable="false">Query should not be empty</string>
 </resources>

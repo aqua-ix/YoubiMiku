@@ -1,0 +1,10 @@
+<resources>
+    <string name="app_name">ユビキタ初音ミク</string>
+    <string name="miku_name">初音ミク</string>
+
+    <string name="tutorial_welcome">こんにちは!インストールしていただきありがとうございます。</string>
+    <string name="tutorial_whats_your_name">まず初めに、あなたのお名前を教えてください。</string>
+    <string name="tutorial_name_is_empty">すみません、もう一度入力してください。</string>
+    <string name="tutorial_nice_to_meet_you">さん!これからよろしくお願いします。\nまだまだ勉強中なので、マスターのお話することを頑張って覚えていきます!</string>
+    <string name="tutorial_how_to_reset_name">名前はアプリを終了するとリセットされます。</string>
+</resources>
