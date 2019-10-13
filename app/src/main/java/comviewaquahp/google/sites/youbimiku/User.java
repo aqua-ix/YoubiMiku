@@ -38,4 +38,9 @@ public class User implements IChatUser {
     public void setIcon(Bitmap icon) {
         this.icon = icon;
     }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
 }

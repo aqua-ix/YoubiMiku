@@ -2,91 +2,273 @@ package comviewaquahp.google.sites.youbimiku;
 
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
+import android.text.TextUtils;
+import android.util.Log;
 import android.view.View;
 import com.github.bassaer.chatmessageview.model.Message;
 import com.github.bassaer.chatmessageview.view.ChatView;
+import com.google.gson.Gson;
+import com.google.gson.JsonElement;
 
-public class MainActivity extends AppCompatActivity {
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
+import ai.api.AIServiceException;
+import ai.api.RequestExtras;
+import ai.api.android.AIConfiguration;
+import ai.api.android.AIDataService;
+import ai.api.android.GsonFactory;
+import ai.api.model.AIContext;
+import ai.api.model.AIError;
+import ai.api.model.AIEvent;
+import ai.api.model.AIRequest;
+import ai.api.model.AIResponse;
+import ai.api.model.Metadata;
+import ai.api.model.Result;
+import ai.api.model.Status;
+
+public class MainActivity extends AppCompatActivity implements View.OnClickListener {
+
+    public static final String TAG = MainActivity.class.getName();
     private ChatView mChatView;
+    private User masterAccount;
+    private User mikuAccount;
+    private boolean startup;
+    private AIDataService aiDataService;
+    private Gson gson = GsonFactory.getGson();
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        //User id
-        int masterId = 0;
-        //User icon
-        //not using
-        Bitmap masterIcon = null;
-        //User name
-        String masterName = "あなた";
+        initChatView();
 
-        int mikuId = 1;
-        Bitmap mikuIcon = BitmapFactory.decodeResource(getResources(), R.drawable.normal);
-        String mikuName = "初音ミク";
+        final LanguageConfig config =
+                new LanguageConfig("ja", Constants.DIALOGFLOW_ACCESS_TOKEN);
 
-        final User master = new User(masterId, masterName, masterIcon);
-        final User miku = new User(mikuId, mikuName, mikuIcon);
+        initAIService(config);
 
-        mChatView = (ChatView) findViewById(R.id.chat_view);
+    }
 
-        Message init = new Message.Builder()
-                .setUser(miku)
-                .setRight(false) // This message Will be shown left side.
-                .setText("こんにちは!まだ開発中なので上手く答えられないかもしれません。その時はごめんなさい...")//Message contents
+    @Override
+    public void onClick(View v) {
+        if(startup){
+            setName();
+            return;
+        }
+        Message send = new Message.Builder()
+                .setUser(masterAccount)
+                .setRight(true)
+                .setText(mChatView.getInputText())
+                .hideIcon(true)
                 .build();
 
-        mChatView.receive(init);
+        sendRequest(mChatView.getInputText());
+        mChatView.send(send);
+        mChatView.setInputText("");
+    }
 
-        Message init2 = new Message.Builder()
-                .setUser(miku)
-                .setRight(false) // This message Will be shown left side.
-                .setText("ご意見・ご要望は[aquapinfo@gmail.com]まで！")//Message contents
-                .build();
-
-        mChatView.receive(init2);
-
-        Message init3 = new Message.Builder()
-                .setUser(miku)
-                .setRight(false) // This message Will be shown left side.
-                .setText("下の入力欄に何か入れてね。\nひらがなだと上手く反応できます。\nボカロPさんの名前もわかるかも...?")//Message contents
-                .build();
-
-        mChatView.receive(init3);
-
-        mChatView.setOnClickSendButtonListener(new View.OnClickListener() {
-
+    private void onResult(final AIResponse response) {
+        runOnUiThread(new Runnable() {
             @Override
-            public void onClick(View view) {
+            public void run() {
+                // Variables
+                gson.toJson(response);
+                final Status status = response.getStatus();
+                final Result result = response.getResult();
+                final String speech = result.getFulfillment().getSpeech();
+                final Metadata metadata = result.getMetadata();
+                final HashMap<String, JsonElement> params = result.getParameters();
 
-                MikuTalk mikuTalk = new MikuTalk();
-                MikuFace mikuFace = new MikuFace();
+                // Logging
+                Log.d(TAG, "onResult");
+                Log.i(TAG, "Received success response");
+                Log.i(TAG, "Status code: " + status.getCode());
+                Log.i(TAG, "Status type: " + status.getErrorType());
+                Log.i(TAG, "Resolved query: " + result.getResolvedQuery());
+                Log.i(TAG, "Action: " + result.getAction());
+                Log.i(TAG, "Speech: " + speech);
 
-                Message m1 = new Message.Builder()
-                        .setUser(master) // Sender
-                        .setRight(true) // This message Will be shown right side.
-                        .setText(mChatView.getInputText()) //Message contents
-                        .hideIcon(true)
+                if (metadata != null) {
+                    Log.i(TAG, "Intent id: " + metadata.getIntentId());
+                    Log.i(TAG, "Intent name: " + metadata.getIntentName());
+                }
+
+                if (params != null && !params.isEmpty()) {
+                    Log.i(TAG, "Parameters: ");
+                    for (final Map.Entry<String, JsonElement> entry : params.entrySet()) {
+                        Log.i(TAG, String.format("%s: %s",
+                                entry.getKey(), entry.getValue().toString()));
+                    }
+                }
+
+                //Update view to bot says
+                final Message receivedMessage = new Message.Builder()
+                        .setUser(mikuAccount)
+                        .setRight(false)
+                        .setText(speech)
                         .build();
+                mChatView.receive(receivedMessage);
+            }
+        });
+    }
 
-                mChatView.send(m1); // Will be shown right side
-                mChatView.setInputText("");
+    private void onError(final AIError error) {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                Log.e(TAG,error.toString());
+            }
+        });
+    }
 
-                miku.setIcon(mikuFace.face(m1.getText(), getResources(),getApplicationContext()));
+    /*
+     * AIRequest should have query OR event
+     */
+    public void sendRequest(String text) {
+        Log.d(TAG, text);
+        final String queryString = String.valueOf(text);
+        final String eventString = null;
+        final String contextString = null;
 
-                Message m2 = new Message.Builder()
-                        .setUser(miku)
-                        .setRight(false) // This message Will be shown left side.
-                        .setText(mikuTalk.talk(m1.getText(),getApplicationContext()))//Message contents
-                        .build();
+        if (TextUtils.isEmpty(queryString) && TextUtils.isEmpty(eventString)) {
+            onError(new AIError(getString(R.string.non_empty_query)));
+            return;
+        }
 
-                mChatView.receive(m2);// Will be shown left side
+        new AiTask().execute(queryString, eventString, contextString);
+    }
+
+    private void initAIService(final LanguageConfig languageConfig) {
+        final AIConfiguration.SupportedLanguages lang =
+                AIConfiguration.SupportedLanguages.fromLanguageTag(languageConfig.getLanguageCode());
+        final AIConfiguration config = new AIConfiguration(languageConfig.getAccessToken(),
+                lang,
+                AIConfiguration.RecognitionEngine.System);
+        aiDataService = new AIDataService(this, config);
+    }
+
+    private void initChatView() {
+        startup = true;
+        mChatView = findViewById(R.id.chat_view);
+        mChatView.setMessageFontSize(Float.valueOf(Constants.DEFAULT_MESSAGE_FONT_SIZE));
+        mChatView.setUsernameFontSize(Float.valueOf(Constants.DEFAULT_USERNAME_FONT_SIZE));
+        mChatView.setTimeLabelFontSize(Float.valueOf(Constants.DEFAULT_TIME_FONT_SIZE));
+
+        Bitmap mikuFace = BitmapFactory.decodeResource(getResources(), R.drawable.normal);
+        masterAccount = new User(0, null, null);
+        mikuAccount = new User(1, getString(R.string.miku_name), mikuFace);
+
+        Message welcome = new Message.Builder()
+                .setUser(mikuAccount)
+                .setRight(false)
+                .setText(getString(R.string.tutorial_welcome))
+                .build();
+
+        mChatView.receive(welcome);
+
+        Message yourname = new Message.Builder()
+                .setUser(mikuAccount)
+                .setRight(false)
+                .setText(getString(R.string.tutorial_whats_your_name))
+                .build();
+
+        mChatView.receive(yourname);
+
+        mChatView.setOnClickSendButtonListener(this);
+    }
+
+    private void setName() {
+
+        Message send = new Message.Builder()
+                .setUser(masterAccount)
+                .setRight(true)
+                .setText(mChatView.getInputText())
+                .hideIcon(true)
+                .build();
+
+
+        mChatView.send(send);
+        if ("".equals(mChatView.getInputText()) || mChatView.getInputText() == null) {
+            Message receive = new Message.Builder()
+                    .setUser(mikuAccount)
+                    .setRight(false)
+                    .setText(getString(R.string.tutorial_name_is_empty))
+                    .build();
+
+            mChatView.receive(receive);
+            return;
+        }
+        masterAccount.setName(mChatView.getInputText());
+        mChatView.setInputText("");
+
+        StringBuilder receiveText = new StringBuilder();
+        receiveText.append(masterAccount.getName());
+        receiveText.append(getString(R.string.tutorial_nice_to_meet_you));
+
+        Message receive = new Message.Builder()
+                .setUser(mikuAccount)
+                .setRight(false)
+                .setText(receiveText.toString())
+                .build();
+
+        mChatView.receive(receive);
+
+        Message attention = new Message.Builder()
+                .setUser(mikuAccount)
+                .setRight(false)
+                .setText(getString(R.string.tutorial_how_to_reset_name))
+                .build();
+
+        mChatView.receive(attention);
+
+        startup = false;
+    }
+
+    public class AiTask extends AsyncTask<String, Void, AIResponse> {
+        private AIError aiError;
+
+        @Override
+        protected AIResponse doInBackground(final String... params) {
+            final AIRequest request = new AIRequest();
+            String query = params[0];
+            String event = params[1];
+            String context = params[2];
+
+            if (!TextUtils.isEmpty(query)){
+                request.setQuery(query);
             }
 
-        });
+            if (!TextUtils.isEmpty(event)){
+                request.setEvent(new AIEvent(event));
+            }
 
+            RequestExtras requestExtras = null;
+            if (!TextUtils.isEmpty(context)) {
+                final List<AIContext> contexts = Collections.singletonList(new AIContext(context));
+                requestExtras = new RequestExtras(contexts, null);
+            }
+
+            try {
+                return aiDataService.request(request, requestExtras);
+            } catch (final AIServiceException e) {
+                aiError = new AIError(e);
+                return null;
+            }
+        }
+
+        @Override
+        protected void onPostExecute(final AIResponse response) {
+            if (response != null) {
+                onResult(response);
+            } else {
+                onError(aiError);
+            }
+        }
     }
 }
