@@ -4,10 +4,12 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.support.v7.app.AppCompatActivity;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
+
+import androidx.appcompat.app.AppCompatActivity;
+
 import com.github.bassaer.chatmessageview.model.Message;
 import com.github.bassaer.chatmessageview.view.ChatView;
 import com.google.gson.Gson;
@@ -57,7 +59,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     @Override
     public void onClick(View v) {
-        if(startup){
+        if (startup) {
             setName();
             return;
         }
@@ -74,57 +76,49 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     private void onResult(final AIResponse response) {
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                // Variables
-                gson.toJson(response);
-                final Status status = response.getStatus();
-                final Result result = response.getResult();
-                final String speech = result.getFulfillment().getSpeech();
-                final Metadata metadata = result.getMetadata();
-                final HashMap<String, JsonElement> params = result.getParameters();
+        runOnUiThread(() -> {
+            // Variables
+            gson.toJson(response);
+            final Status status = response.getStatus();
+            final Result result = response.getResult();
+            final String speech = result.getFulfillment().getSpeech();
+            final Metadata metadata = result.getMetadata();
+            final HashMap<String, JsonElement> params = result.getParameters();
 
-                // Logging
-                Log.d(TAG, "onResult");
-                Log.i(TAG, "Received success response");
-                Log.i(TAG, "Status code: " + status.getCode());
-                Log.i(TAG, "Status type: " + status.getErrorType());
-                Log.i(TAG, "Resolved query: " + result.getResolvedQuery());
-                Log.i(TAG, "Action: " + result.getAction());
-                Log.i(TAG, "Speech: " + speech);
+            // Logging
+            Log.d(TAG, "onResult");
+            Log.i(TAG, "Received success response");
+            Log.i(TAG, "Status code: " + status.getCode());
+            Log.i(TAG, "Status type: " + status.getErrorType());
+            Log.i(TAG, "Resolved query: " + result.getResolvedQuery());
+            Log.i(TAG, "Action: " + result.getAction());
+            Log.i(TAG, "Speech: " + speech);
 
-                if (metadata != null) {
-                    Log.i(TAG, "Intent id: " + metadata.getIntentId());
-                    Log.i(TAG, "Intent name: " + metadata.getIntentName());
-                }
-
-                if (params != null && !params.isEmpty()) {
-                    Log.i(TAG, "Parameters: ");
-                    for (final Map.Entry<String, JsonElement> entry : params.entrySet()) {
-                        Log.i(TAG, String.format("%s: %s",
-                                entry.getKey(), entry.getValue().toString()));
-                    }
-                }
-
-                //Update view to bot says
-                final Message receivedMessage = new Message.Builder()
-                        .setUser(mikuAccount)
-                        .setRight(false)
-                        .setText(speech)
-                        .build();
-                mChatView.receive(receivedMessage);
+            if (metadata != null) {
+                Log.i(TAG, "Intent id: " + metadata.getIntentId());
+                Log.i(TAG, "Intent name: " + metadata.getIntentName());
             }
+
+            if (params != null && !params.isEmpty()) {
+                Log.i(TAG, "Parameters: ");
+                for (final Map.Entry<String, JsonElement> entry : params.entrySet()) {
+                    Log.i(TAG, String.format("%s: %s",
+                            entry.getKey(), entry.getValue().toString()));
+                }
+            }
+
+            //Update view to bot says
+            final Message receivedMessage = new Message.Builder()
+                    .setUser(mikuAccount)
+                    .setRight(false)
+                    .setText(speech)
+                    .build();
+            mChatView.receive(receivedMessage);
         });
     }
 
     private void onError(final AIError error) {
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                Log.e(TAG,error.toString());
-            }
-        });
+        runOnUiThread(() -> Log.e(TAG, error.toString()));
     }
 
     /*
@@ -194,7 +188,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
 
         mChatView.send(send);
-        if ("".equals(mChatView.getInputText()) || mChatView.getInputText() == null) {
+        if ("".equals(mChatView.getInputText())) {
             Message receive = new Message.Builder()
                     .setUser(mikuAccount)
                     .setRight(false)
@@ -203,18 +197,18 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
             mChatView.receive(receive);
             return;
+        } else {
+            mChatView.getInputText();
         }
         masterAccount.setName(mChatView.getInputText());
         mChatView.setInputText("");
 
-        StringBuilder receiveText = new StringBuilder();
-        receiveText.append(masterAccount.getName());
-        receiveText.append(getString(R.string.tutorial_nice_to_meet_you));
-
+        String receiveText = masterAccount.getName() +
+                getString(R.string.tutorial_nice_to_meet_you);
         Message receive = new Message.Builder()
                 .setUser(mikuAccount)
                 .setRight(false)
-                .setText(receiveText.toString())
+                .setText(receiveText)
                 .build();
 
         mChatView.receive(receive);
@@ -240,11 +234,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             String event = params[1];
             String context = params[2];
 
-            if (!TextUtils.isEmpty(query)){
+            if (!TextUtils.isEmpty(query)) {
                 request.setQuery(query);
             }
 
-            if (!TextUtils.isEmpty(event)){
+            if (!TextUtils.isEmpty(event)) {
                 request.setEvent(new AIEvent(event));
             }
 
