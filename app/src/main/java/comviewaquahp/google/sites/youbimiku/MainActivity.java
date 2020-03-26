@@ -51,7 +51,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         initChatView();
 
         final LanguageConfig config =
-                new LanguageConfig("ja", Constants.DIALOGFLOW_ACCESS_TOKEN);
+                new LanguageConfig("ja", Constants.DIALOG_FLOW_ACCESS_TOKEN);
 
         initAIService(config);
 
@@ -150,9 +150,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private void initChatView() {
         startup = true;
         mChatView = findViewById(R.id.chat_view);
-        mChatView.setMessageFontSize(Float.valueOf(Constants.DEFAULT_MESSAGE_FONT_SIZE));
-        mChatView.setUsernameFontSize(Float.valueOf(Constants.DEFAULT_USERNAME_FONT_SIZE));
-        mChatView.setTimeLabelFontSize(Float.valueOf(Constants.DEFAULT_TIME_FONT_SIZE));
+        mChatView.setMessageFontSize(Float.parseFloat(Constants.DEFAULT_MESSAGE_FONT_SIZE));
+        mChatView.setUsernameFontSize(Float.parseFloat(Constants.DEFAULT_USERNAME_FONT_SIZE));
+        mChatView.setTimeLabelFontSize(Float.parseFloat(Constants.DEFAULT_TIME_FONT_SIZE));
 
         Bitmap mikuFace = BitmapFactory.decodeResource(getResources(), R.drawable.normal);
         masterAccount = new User(0, null, null);
@@ -166,13 +166,13 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
         mChatView.receive(welcome);
 
-        Message yourname = new Message.Builder()
+        Message yourName = new Message.Builder()
                 .setUser(mikuAccount)
                 .setRight(false)
                 .setText(getString(R.string.tutorial_whats_your_name))
                 .build();
 
-        mChatView.receive(yourname);
+        mChatView.receive(yourName);
 
         mChatView.setOnClickSendButtonListener(this);
     }
