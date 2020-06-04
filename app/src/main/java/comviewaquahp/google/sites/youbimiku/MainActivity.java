@@ -1,17 +1,24 @@
 package comviewaquahp.google.sites.youbimiku;
 
+import android.annotation.SuppressLint;
+import android.content.Context;
+import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.text.InputType;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
+import android.widget.EditText;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.github.bassaer.chatmessageview.model.Message;
 import com.github.bassaer.chatmessageview.view.ChatView;
+import com.google.android.material.textfield.TextInputLayout;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 
@@ -40,7 +47,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private ChatView mChatView;
     private User masterAccount;
     private User mikuAccount;
-    private boolean startup;
     private AIDataService aiDataService;
     private Gson gson = GsonFactory.getGson();
 
@@ -48,21 +54,48 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        SharedPreferences sharedPref = getPreferences(Context.MODE_PRIVATE);
+        String userName = sharedPref.getString(getString(R.string.saved_user_name_key), "");
+
         initChatView();
+
+        if (userName.isEmpty()) {
+            showUserNameDialog(sharedPref);
+        } else {
+            masterAccount.setName(userName);
+            showGreet(userName);
+        }
 
         final LanguageConfig config =
                 new LanguageConfig("ja", Constants.DIALOG_FLOW_ACCESS_TOKEN);
-
         initAIService(config);
+    }
 
+    @SuppressLint("ApplySharedPref")
+    public void showUserNameDialog(SharedPreferences sharedPref) {
+        final EditText editText = new EditText(this);
+        editText.setInputType(InputType.TYPE_CLASS_TEXT);
+        new AlertDialog.Builder(this)
+                .setTitle(getString(R.string.tutorial_welcome))
+                .setMessage(getString(R.string.tutorial_whats_your_name))
+                .setView(editText)
+                .setPositiveButton("OK", (dialog, which) -> {
+                    SharedPreferences.Editor editor = sharedPref.edit();
+                    String name = editText.getText().toString();
+                    if (!name.isEmpty()) {
+                        masterAccount.setName(name);
+                    } else {
+                        name = "";
+                    }
+                    showGreet(name);
+                    editor.putString(getString(R.string.saved_user_name_key), name);
+                    editor.commit();
+                }).show();
     }
 
     @Override
     public void onClick(View v) {
-        if (startup) {
-            setName();
-            return;
-        }
         Message send = new Message.Builder()
                 .setUser(masterAccount)
                 .setRight(true)
@@ -126,16 +159,12 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
      */
     public void sendRequest(String text) {
         Log.d(TAG, text);
-        final String queryString = String.valueOf(text);
-        final String eventString = null;
-        final String contextString = null;
-
-        if (TextUtils.isEmpty(queryString) && TextUtils.isEmpty(eventString)) {
+        if (TextUtils.isEmpty(text)) {
             onError(new AIError(getString(R.string.non_empty_query)));
             return;
         }
 
-        new AiTask().execute(queryString, eventString, contextString);
+        new AiTask().execute(text, null, null);
     }
 
     private void initAIService(final LanguageConfig languageConfig) {
@@ -148,7 +177,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     private void initChatView() {
-        startup = true;
         mChatView = findViewById(R.id.chat_view);
         mChatView.setMessageFontSize(Float.parseFloat(Constants.DEFAULT_MESSAGE_FONT_SIZE));
         mChatView.setUsernameFontSize(Float.parseFloat(Constants.DEFAULT_USERNAME_FONT_SIZE));
@@ -158,70 +186,18 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         masterAccount = new User(0, null, null);
         mikuAccount = new User(1, getString(R.string.miku_name), mikuFace);
 
-        Message welcome = new Message.Builder()
-                .setUser(mikuAccount)
-                .setRight(false)
-                .setText(getString(R.string.tutorial_welcome))
-                .build();
-
-        mChatView.receive(welcome);
-
-        Message yourName = new Message.Builder()
-                .setUser(mikuAccount)
-                .setRight(false)
-                .setText(getString(R.string.tutorial_whats_your_name))
-                .build();
-
-        mChatView.receive(yourName);
-
         mChatView.setOnClickSendButtonListener(this);
     }
 
-    private void setName() {
-
-        Message send = new Message.Builder()
-                .setUser(masterAccount)
-                .setRight(true)
-                .setText(mChatView.getInputText())
-                .hideIcon(true)
-                .build();
-
-
-        mChatView.send(send);
-        if ("".equals(mChatView.getInputText())) {
-            Message receive = new Message.Builder()
-                    .setUser(mikuAccount)
-                    .setRight(false)
-                    .setText(getString(R.string.tutorial_name_is_empty))
-                    .build();
-
-            mChatView.receive(receive);
-            return;
-        } else {
-            mChatView.getInputText();
-        }
-        masterAccount.setName(mChatView.getInputText());
-        mChatView.setInputText("");
-
-        String receiveText = masterAccount.getName() +
-                getString(R.string.tutorial_nice_to_meet_you);
-        Message receive = new Message.Builder()
+    private void showGreet(String userName) {
+        String greeting = getResources().getString(R.string.tutorial_nice_to_meet_you, userName);
+        Message welcome = new Message.Builder()
                 .setUser(mikuAccount)
                 .setRight(false)
-                .setText(receiveText)
+                .setText(greeting)
                 .build();
 
-        mChatView.receive(receive);
-
-        Message attention = new Message.Builder()
-                .setUser(mikuAccount)
-                .setRight(false)
-                .setText(getString(R.string.tutorial_how_to_reset_name))
-                .build();
-
-        mChatView.receive(attention);
-
-        startup = false;
+        mChatView.receive(welcome);
     }
 
     public class AiTask extends AsyncTask<String, Void, AIResponse> {
