@@ -2,13 +2,18 @@
     <string name="app_name">YoubiMiku</string>
     <string name="miku_name">Hatsune Miku</string>
 
-    <string name="tutorial_welcome">Welcome!</string>
-    <string name="tutorial_whats_your_name">Hou can I call you?</string>
-    <string name="tutorial_fill_name">Fill Your Name</string>
-    <string name="tutorial_name_is_empty">Sorry, try again.</string>
-    <string name="tutorial_nice_to_meet_you">%1$s! Nice to meet you.</string>
+    <string name="miku_nice_to_meet_you">Nice to meet you, %1$s!</string>
 
-    <string name="non_empty_query" translatable="false">Query should not be empty</string>
+    <string name="setting_user_name">Your Name</string>
+    <string name="setting_font_size">Font Size</string>
+    <string name="setting_feedback">Feedback</string>
+    <string name="setting_name_title">Hou can I call you?</string>
+    <string name="setting_name_hint">Fill Name</string>
+    <string name="setting_name_message">If blank, your name will be \"User\".</string>
+    <string name="setting_font_small">Small</string>
+    <string name="setting_font_medium">Medium</string>
+    <string name="setting_font_large">Large</string>
 
-    <string name="saved_user_name_key" translatable="false">userName</string>
+    <string name="logger_empty_query" translatable="false">Query should not be empty</string>
+
 </resources>

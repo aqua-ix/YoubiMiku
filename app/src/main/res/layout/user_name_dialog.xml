@@ -8,8 +8,13 @@
 
     <EditText
         android:id="@+id/editText"
-        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:autofillHints="@string/tutorial_whats_your_name"
+        android:layout_width="match_parent"
+        android:layout_marginTop="16dp"
+        android:layout_marginLeft="2dp"
+        android:layout_marginRight="2dp"
+        android:layout_marginBottom="4dp"
+        android:autofillHints="@string/setting_name_hint"
+        android:hint="@string/setting_name_hint"
         android:inputType="text" />
 </LinearLayout>
