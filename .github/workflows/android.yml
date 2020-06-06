@@ -18,4 +18,6 @@ jobs:
       with:
         java-version: 1.8
     - name: Build with Gradle
-      run: sudo ./gradlew build
+      run: |
+        chmod +x ./gradlew
+        ./gradlew build
