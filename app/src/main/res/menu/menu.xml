@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id="@+id/setting_user_name"
+        android:title="@string/setting_user_name"/>
+    <item android:id="@+id/setting_font_size"
+        android:title="@string/setting_font_size"/>
+    <item android:id="@+id/setting_feedback"
+        android:title="@string/setting_feedback"/>
+</menu>

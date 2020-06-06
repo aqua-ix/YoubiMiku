@@ -2,9 +2,15 @@
     <string name="app_name">ユビキタ初音ミク</string>
     <string name="miku_name">初音ミク</string>
 
-    <string name="tutorial_welcome">こんにちは!インストールしていただきありがとうございます。</string>
-    <string name="tutorial_whats_your_name">まず初めに、あなたのお名前を教えてください。</string>
-    <string name="tutorial_name_is_empty">すみません、もう一度入力してください。</string>
-    <string name="tutorial_nice_to_meet_you">さん!これからよろしくお願いします。\nまだまだ勉強中なので、マスターのお話することを頑張って覚えていきます!</string>
-    <string name="tutorial_how_to_reset_name">名前はアプリを終了するとリセットされます。</string>
+    <string name="miku_nice_to_meet_you">%1$sさん!よろしくお願いします。</string>
+    <string name="setting_user_name">あなたの名前</string>
+    <string name="setting_feedback">フィードバック</string>
+    <string name="setting_font_size">文字サイズ</string>
+    <string name="setting_name_title">お名前を教えてください</string>
+    <string name="setting_name_hint">名前を入力</string>
+    <string name="setting_name_message">未入力の場合は「User」になります。</string>
+    <string name="setting_font_small">小</string>
+    <string name="setting_font_medium">中</string>
+    <string name="setting_font_large">大</string>
+
 </resources>
