@@ -1,26 +1,19 @@
-ユビキタ初音ミクアプリ [Version 3.0]
+YoubiMiku / ユビキタ初音ミク
 ====
 
-## 更新履歴
-### 2019/10/14 version3.0
-DialogFlowに対応しました。
+![](https://github.com/Aqua-ix/YoubiMiku/workflows/Android%20CI/badge.svg)
+![](https://img.shields.io/github/license/Aqua-ix/YoubiMiku)
 
-## 説明
-朝から晩まで初音ミクと一緒にいられるアプリです。
+Let's talk to Hatsune Miku.
 
-## デモ
-<img src="https://github.com/Aqua-ix/YoubiMiku/blob/master/v2.0_demo.gif" width="320px">
+## Demo
+<img src="v2.0_demo.gif" width="320px">
 
-## 動作環境
-Android 4.1以上必須
-Android 9.0以上推奨
+## Download
 
-## 利用方法
-[Play Store](https://play.google.com/store/apps/details?id=comviewaquahp.google.sites.youbimiku)
-よりダウンロードしてください。
+<a href="https://play.google.com/store/apps/details?id=comviewaquahp.google.sites.youbimiku&hl=ja">
+  <img src="https://play.google.com/intl/ja/badges/static/images/badges/ja_badge_web_generic.png" width="250px">
+</a>
 
-テキストボックスに文字を入力し、送信ボタンを押すと初音ミクが返答します。
-
-## 作成者
-
-[AQUA](https://github.com/Aqua-ix)
+## Licence
+この作品は[ピアプロ・キャラクター・ライセンス](https://piapro.jp/license/pcl/summary)に基づいてクリプトン・フューチャー・メディア株式会社のキャラクター「初音ミク」を描いたものです。
