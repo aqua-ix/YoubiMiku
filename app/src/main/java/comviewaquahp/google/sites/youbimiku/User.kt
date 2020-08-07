@@ -1,9 +1,6 @@
-/**
- * Created by Aqua-ix on 2020/03/27.
- */
-
 package comviewaquahp.google.sites.youbimiku
 
+import android.content.Context
 import android.graphics.Bitmap
 import com.github.bassaer.chatmessageview.model.IChatUser
 
@@ -29,4 +26,12 @@ class User internal constructor(private val id: Int, private var name: String?, 
         this.name = name
     }
 
+}
+
+fun getUserName(context: Context): String? {
+    return SharedPreferenceManager.get(
+            context,
+            Key.USER_NAME.name,
+            ""
+    )
 }

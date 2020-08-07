@@ -23,9 +23,8 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.github.bassaer.chatmessageview.model.Message
 import kotlinx.android.synthetic.main.activity_main.*
-import kotlinx.android.synthetic.main.user_name_dialog.view.*
 
-class MainActivity : AppCompatActivity(), View.OnClickListener {
+class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     private lateinit var mUserAccount: User
     private lateinit var mMikuAccount: User
     private lateinit var mAiDataService: AIDataService
@@ -36,17 +35,13 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
     public override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        val userName = SharedPreferenceManager.get(
-                this,
-                Key.USER_NAME.name,
-                ""
-        )
+
         initChatView()
-        if (userName.equals("")) {
+        if (getUserName(this).equals("")) {
             showUserNameDialog()
         } else {
-            mUserAccount.setName(userName.toString())
-            showGreet(userName)
+            mUserAccount.setName(getUserName(this).toString())
+            showGreet(getUserName(this))
         }
         val config = AIConfig(
                 Constants.DEFAULT_LANGUAGE_CODE,
@@ -54,40 +49,23 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
         initAIService(config)
     }
 
-    @SuppressLint("InflateParams")
     private fun showUserNameDialog() {
-        val view = layoutInflater.inflate(R.layout.user_name_dialog, null)
-        AlertDialog.Builder(this)
-                .setTitle(getString(R.string.setting_name_title))
-                .setMessage(getString(R.string.setting_name_message))
-                .setView(view)
-                .setPositiveButton("OK") { _, _ ->
-                    var name = view.editText.text.toString()
-                    if (name.isNotEmpty()) {
-                        mUserAccount.setName(name)
-                    } else {
-                        name = "User"
-                    }
-                    showGreet(name)
-                    SharedPreferenceManager.put(
-                            this,
-                            Key.USER_NAME.name,
-                            name
-                    )
-                }.create().show()
+        val dialog = UserNameDialogFragment()
+        dialog.setDialogListener(this)
+        dialog.show(fragmentManager, "userNameDialog")
+    }
+
+    override fun doPositiveClick(){
+        mUserAccount.setName(getUserName(this).toString())
+        showGreet(getUserName(this))
     }
 
     private fun showFontSizeDialog() {
-        val current = SharedPreferenceManager.get(
-                this,
-                Key.FONT_SIZE.name,
-                FontSizeConfig.FONT_SIZE_MEDIUM.name
-        )
-        val index = FontSizeConfig.getType(current).ordinal
+        val index = FontSizeConfig.getType(getFontSizeType(this)).ordinal
         AlertDialog.Builder(this)
                 .setTitle(getString(R.string.setting_font_size))
                 .setSingleChoiceItems(R.array.font_size_config, index) { _, which ->
-                    setFontSize(FontSizeConfig.getSize(which))
+                    setFontSize(FontSizeConfig.getSize(which), chat_view)
                     SharedPreferenceManager.put(
                             this,
                             Key.FONT_SIZE.name,
@@ -102,12 +80,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
         val uri = Uri.parse("market://details?id=$packageName")
         val intent = Intent(Intent.ACTION_VIEW, uri)
         startActivity(intent)
-    }
-
-    private fun setFontSize(size: Float) {
-        chat_view.setMessageFontSize(size)
-        chat_view.setUsernameFontSize(size - 10)
-        chat_view.setTimeLabelFontSize(size - 10)
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -135,6 +107,9 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
     }
 
     override fun onClick(v: View) {
+        if (chat_view.inputText.isEmpty()) {
+            return
+        }
         val send = Message.Builder()
                 .setUser(mUserAccount)
                 .setRight(true)
@@ -185,12 +160,9 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
     }
 
     private fun initChatView() {
-        val current = SharedPreferenceManager.get(
-                this,
-                Key.FONT_SIZE.name,
-                FontSizeConfig.FONT_SIZE_MEDIUM.name
-        )
-        setFontSize(FontSizeConfig.getSize(current))
+        val size = FontSizeConfig.getSize(getFontSizeType(this))
+        setFontSize(size, chat_view)
+
         val mikuFace = BitmapFactory.decodeResource(resources, R.drawable.normal)
         mUserAccount = User(0, null, null)
         mMikuAccount = User(1, getString(R.string.miku_name), mikuFace)

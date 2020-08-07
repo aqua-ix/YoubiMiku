@@ -3,14 +3,18 @@
     <string name="miku_name">初音ミク</string>
 
     <string name="miku_nice_to_meet_you">%1$sさん!よろしくお願いします。</string>
+
     <string name="setting_user_name">あなたの名前</string>
-    <string name="setting_feedback">フィードバック</string>
-    <string name="setting_font_size">文字サイズ</string>
     <string name="setting_name_title">お名前を教えてください</string>
     <string name="setting_name_hint">名前を入力</string>
-    <string name="setting_name_message">未入力の場合は「User」になります。</string>
+    <string name="setting_user_name_empty">ユーザー名を入力してください。</string>
+
+    <string name="setting_font_size">文字サイズ</string>
+    <string name="setting_font_xsmall">極小</string>
     <string name="setting_font_small">小</string>
     <string name="setting_font_medium">中</string>
     <string name="setting_font_large">大</string>
+
+    <string name="setting_feedback">フィードバック</string>
 
 </resources>
