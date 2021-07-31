@@ -1,61 +1,74 @@
 package comviewaquahp.google.sites.youbimiku
 
-import ai.api.AIConfiguration.SupportedLanguages
-import ai.api.AIConfiguration.SupportedLanguages.fromLanguageTag
-import ai.api.AIServiceException
-import ai.api.RequestExtras
-import ai.api.android.AIConfiguration
-import ai.api.android.AIDataService
-import ai.api.android.GsonFactory
-import ai.api.model.*
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.AsyncTask
+import android.os.Build
 import android.os.Bundle
 import android.text.TextUtils
 import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
+import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.github.bassaer.chatmessageview.model.Message
+import com.google.android.play.core.review.ReviewManagerFactory
 import kotlinx.android.synthetic.main.activity_main.*
+import java.lang.Exception
 
 class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     private lateinit var mUserAccount: User
     private lateinit var mMikuAccount: User
-    private lateinit var mAiDataService: AIDataService
-    private val gson = GsonFactory.getGson()
 
-    data class AIConfig(val languageCode: String, val accessToken: String)
+    private lateinit var detectIntent: DetectIntent
 
     public override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        // 起動回数カウント
+        val pref = SharedPreferenceManager
+        pref.get(this, Key.LAUNCH_COUNT.name, 0)?.let {
+            val current = it + 1
+            pref.put(this, Key.LAUNCH_COUNT.name, current)
+
+            // 起動回数が5回のときにInAppReviewを表示しカウントをリセット
+            if (current >= 5) {
+                openInAppReview()
+                pref.put(this, Key.LAUNCH_COUNT.name, 0)
+            }
+        }
+
+        detectIntent = DetectIntent(this)
+
         initChatView()
         if (getUserName(this).equals("")) {
-            showUserNameDialog()
+            showUserNameDialog(false)
         } else {
             mUserAccount.setName(getUserName(this).toString())
             showGreet(getUserName(this))
         }
-        val config = AIConfig(
-                Constants.DEFAULT_LANGUAGE_CODE,
-                Constants.DIALOG_FLOW_ACCESS_TOKEN)
-        initAIService(config)
     }
 
-    private fun showUserNameDialog() {
+    public override fun onDestroy() {
+        super.onDestroy()
+        detectIntent.resetContexts()
+    }
+
+    private fun showUserNameDialog(cancelable: Boolean = true) {
         val dialog = UserNameDialogFragment()
+        val args = Bundle()
+        args.putBoolean(Constants.ARGUMENT_CANCELABLE, cancelable)
+        dialog.arguments = args
         dialog.setDialogListener(this)
-        dialog.show(fragmentManager, "userNameDialog")
+        dialog.show(fragmentManager, UserNameDialogFragment::class.java.name)
     }
 
-    override fun doPositiveClick(){
+    override fun doPositiveClick() {
         mUserAccount.setName(getUserName(this).toString())
         showGreet(getUserName(this))
     }
@@ -72,14 +85,56 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                             FontSizeConfig.getType(which).name
                     )
                 }
-                .setPositiveButton("OK", null)
+                .setPositiveButton(getString(R.string.setting_dialog_accept), null)
                 .show()
     }
 
     private fun openPlayStore() {
-        val uri = Uri.parse("market://details?id=$packageName")
-        val intent = Intent(Intent.ACTION_VIEW, uri)
-        startActivity(intent)
+        try {
+            val uri = Uri.parse("market://details?id=$packageName")
+            val intent = Intent(Intent.ACTION_VIEW, uri)
+            startActivity(intent)
+        } catch (e: Exception) {
+            Toast.makeText(this,
+                    getString(R.string.setting_submit_review_error),
+                    Toast.LENGTH_SHORT)
+                    .show()
+        }
+    }
+
+    private fun openInAppReview() {
+        try {
+            val reviewManager = ReviewManagerFactory.create(this)
+            reviewManager.requestReviewFlow().addOnSuccessListener { reviewInfo ->
+                reviewManager.launchReviewFlow(this, reviewInfo)
+                        .addOnSuccessListener {
+                        }
+            }
+        }
+        catch (e: Exception) {
+        }
+    }
+
+    private fun openMailer() {
+        try {
+            val intent = Intent(Intent.ACTION_SENDTO).apply {
+                data = Uri.parse("mailto:")
+                putExtra(Intent.EXTRA_EMAIL, arrayOf(Constants.FEEDBACK_ADDRESS))
+                putExtra(Intent.EXTRA_SUBJECT, getString(R.string.feedback_email_subject))
+                val text = buildString {
+                    append("Model Name: " + Build.MODEL)
+                    append("\nOS Version: " + Build.VERSION.SDK_INT)
+                    append("\n=================\n")
+                }
+                putExtra(Intent.EXTRA_TEXT, text)
+            }
+            startActivity(intent)
+        }catch (e: Exception){
+            Toast.makeText(this,
+                    getString(R.string.setting_send_feedback_error),
+                    Toast.LENGTH_SHORT)
+                    .show()
+        }
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -98,8 +153,12 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                 showFontSizeDialog()
                 true
             }
-            R.id.setting_feedback -> {
+            R.id.setting_submit_review -> {
                 openPlayStore()
+                true
+            }
+            R.id.setting_send_feedback -> {
+                openMailer()
                 true
             }
             else -> super.onOptionsItemSelected(item)
@@ -121,42 +180,29 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         chat_view.inputText = ""
     }
 
-    private fun onResult(response: AIResponse) {
+    private fun onResult(response: String) {
         runOnUiThread {
-            // Variables
-            gson.toJson(response)
-            val result = response.result
-            val speech = result.fulfillment.speech
-
             //Update view to bot says
             val receivedMessage = Message.Builder()
                     .setUser(mMikuAccount)
                     .setRight(false)
-                    .setText(speech)
+                    .setText(response)
                     .build()
             chat_view.receive(receivedMessage)
         }
     }
 
-    private fun onError(error: AIError?) {
+    private fun onError(error: String?) {
         runOnUiThread { Log.e(TAG, error.toString()) }
     }
 
     private fun sendRequest(text: String) {
         Log.d(TAG, text)
         if (TextUtils.isEmpty(text)) {
-            onError(AIError(getString(R.string.logger_empty_query)))
+            onError(Constants.LOGGER_EMPTY_QUERY)
             return
         }
         AiTask().execute(text, null, null)
-    }
-
-    private fun initAIService(config: AIConfig) {
-        val lang: SupportedLanguages = fromLanguageTag(config.languageCode)
-        val c = AIConfiguration(config.accessToken,
-                lang,
-                AIConfiguration.RecognitionEngine.System)
-        mAiDataService = AIDataService(this, c)
     }
 
     private fun initChatView() {
@@ -166,6 +212,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         val mikuFace = BitmapFactory.decodeResource(resources, R.drawable.normal)
         mUserAccount = User(0, null, null)
         mMikuAccount = User(1, getString(R.string.miku_name), mikuFace)
+        chat_view.setDateSeparatorFontSize(0F)
+        chat_view.setInputTextHint(getString(R.string.input_text_hint))
         chat_view.setOnClickSendButtonListener(this)
     }
 
@@ -180,44 +228,26 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     }
 
     @SuppressLint("StaticFieldLeak")
-    inner class AiTask : AsyncTask<String?, Void?, AIResponse?>() {
-        private var aiError: AIError? = null
-
-        override fun doInBackground(vararg params: String?): AIResponse? {
-            val request = AIRequest()
+    inner class AiTask : AsyncTask<String, Void?, String?>() {
+        var error = ""
+        override fun doInBackground(vararg params: String): String {
             val query = params[0]
-            val event = params[1]
-            val context = params[2]
-            if (!TextUtils.isEmpty(query)) {
-                request.setQuery(query)
-            }
-            if (!TextUtils.isEmpty(event)) {
-                request.setEvent(AIEvent(event))
-            }
-            var requestExtras: RequestExtras? = null
-            if (!TextUtils.isEmpty(context)) {
-                val contexts = listOf(AIContext(context))
-                requestExtras = RequestExtras(contexts, null)
-            }
             return try {
-                mAiDataService.request(request, requestExtras)
-            } catch (e: AIServiceException) {
-                aiError = AIError(e)
-                null
+                detectIntent.send(query)
+            } catch (e: Exception) {
+                error = e.toString()
+                ""
             }
         }
 
-        override fun onPostExecute(response: AIResponse?) {
-            if (response != null) {
-                onResult(response)
-            } else {
-                onError(aiError)
-            }
+        override fun onPostExecute(response: String?) {
+            response?.let {
+                onResult(it)
+            } ?: onError(error)
         }
-
     }
 
     companion object {
-        val TAG = MainActivity::class.java.name
+        val TAG = MainActivity::class.java.name.toString()
     }
 }

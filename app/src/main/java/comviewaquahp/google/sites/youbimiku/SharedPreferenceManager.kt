@@ -19,10 +19,19 @@ open class SharedPreferenceManager {
         fun put(context: Context, key: String, value: String) {
             instance(context).edit().putString(key, value).apply()
         }
+
+        fun get(context: Context, key: String, defValue: Int): Int? {
+            return instance(context).getInt(key, defValue)
+        }
+
+        fun put(context: Context, key: String, value: Int) {
+            instance(context).edit().putInt(key, value).apply()
+        }
     }
 }
 
 enum class Key {
     USER_NAME,
-    FONT_SIZE
+    FONT_SIZE,
+    LAUNCH_COUNT
 }

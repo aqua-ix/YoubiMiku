@@ -3,7 +3,10 @@
     <string name="miku_name">初音ミク</string>
 
     <string name="miku_nice_to_meet_you">%1$sさん!よろしくお願いします。</string>
+    <string name="input_text_hint">"話しかける"</string>
 
+    <string name="setting_dialog_accept">決定</string>
+    <string name="setting_dialog_cancel">キャンセル</string>
     <string name="setting_user_name">あなたの名前</string>
     <string name="setting_name_title">お名前を教えてください</string>
     <string name="setting_name_hint">名前を入力</string>
@@ -15,6 +18,9 @@
     <string name="setting_font_medium">中</string>
     <string name="setting_font_large">大</string>
 
-    <string name="setting_feedback">フィードバック</string>
-
+    <string name="setting_submit_review">応援する</string>
+    <string name="setting_submit_review_error">PlayStoreが見つかりません</string>
+    <string name="setting_send_feedback">意見を送る</string>
+    <string name="setting_send_feedback_error">メールアプリが見つかりません</string>
+    <string name="feedback_email_subject">"[ユビキタ初音ミク] フィードバック"</string>
 </resources>

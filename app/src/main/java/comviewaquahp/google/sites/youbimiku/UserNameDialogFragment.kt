@@ -25,11 +25,15 @@ class UserNameDialogFragment : DialogFragment() {
         view?.editText?.setText(getUserName(activity))
 
         val builder = AlertDialog.Builder(activity)
-        this.isCancelable = false
+        builder.setPositiveButton(getString(R.string.setting_dialog_accept)) { _, _ ->}
+        if (arguments.getBoolean(Constants.ARGUMENT_CANCELABLE)){
+            builder.setNegativeButton(getString(R.string.setting_dialog_cancel)){ _, _ ->}
+        } else{
+            this.isCancelable = false
+        }
         val dialog = builder.setTitle(R.string.setting_name_title)
                 .setView(view)
-                .setPositiveButton("OK") { _, _ ->
-                }.create()
+                .create()
         dialog.show()
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
             val name = view?.editText?.text.toString()

@@ -2,12 +2,15 @@
     <string name="app_name">YoubiMiku</string>
     <string name="miku_name">Hatsune Miku</string>
 
-    <string name="miku_nice_to_meet_you">Nice to meet you, %1$s!</string>
+    <string name="miku_nice_to_meet_you">Nice to meet you, %1$s!\nI\'m sorry, but at the moment I only support Japanese.</string>
+    <string name="input_text_hint">"Message…"</string>
 
     <string name="setting_user_name">Your Name</string>
     <string name="setting_name_title">Hou can I call you?</string>
     <string name="setting_name_hint">Fill Name</string>
     <string name="setting_user_name_empty">Please enter your username</string>
+    <string name="setting_dialog_accept">OK</string>
+    <string name="setting_dialog_cancel">Cancel</string>
 
     <string name="setting_font_size">Font Size</string>
     <string name="setting_font_xsmall">Extra Small</string>
@@ -15,8 +18,9 @@
     <string name="setting_font_medium">Medium</string>
     <string name="setting_font_large">Large</string>
 
-    <string name="setting_feedback">Feedback</string>
-
-    <string name="logger_empty_query" translatable="false">Query should not be empty</string>
-
+    <string name="setting_submit_review">Submit Review</string>
+    <string name="setting_submit_review_error">Please Install Play Store</string>
+    <string name="setting_send_feedback">Send Feedback</string>
+    <string name="setting_send_feedback_error">Please Install Mail App</string>
+    <string name="feedback_email_subject">"[YoubiMiku] FeedBack"</string>
 </resources>
