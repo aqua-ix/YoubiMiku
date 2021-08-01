@@ -21,6 +21,12 @@ jobs:
       env:
         GOOGLE_SERVICE: ${{ secrets.GOOGLE_SERVICE_JSON }}
       run: echo $GOOGLE_SERVICE | base64 --decode --ignore-garbage > ./app/google-services.json
+    - name: copy dialogflow-secret
+      env:
+        DIALOGFLOW_SECRET: ${{ secrets.DIALOGFLOW_SECRET_JSON }}
+      run: |
+        mkdir -p ./app/src/main/res/raw
+        echo $DIALOGFLOW_SECRET | base64 --decode --ignore-garbage > ./app/src/main/res/raw/dialogflow_secret.json
     - name: Build with Gradle
       run: |
         chmod +x ./gradlew

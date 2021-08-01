@@ -27,7 +27,7 @@ class DetectIntent(
 
     init {
         val credentials = GoogleCredentials
-                .fromStream(context.resources.openRawResource(R.raw.credentials))
+                .fromStream(context.resources.openRawResource(R.raw.dialogflow_secret))
                 .createScoped(SCOPE)
         sessionsClient = createSessions(credentials)
         contextClient = createContexts(credentials)
