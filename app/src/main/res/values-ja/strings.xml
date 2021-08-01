@@ -3,7 +3,9 @@
     <string name="miku_name">初音ミク</string>
 
     <string name="miku_nice_to_meet_you">%1$sさん!よろしくお願いします。</string>
-    <string name="input_text_hint">"話しかける"</string>
+    <string name="input_text_hint">話しかける</string>
+
+    <string name="ad_placeholder">広告</string>
 
     <string name="setting_dialog_accept">決定</string>
     <string name="setting_dialog_cancel">キャンセル</string>

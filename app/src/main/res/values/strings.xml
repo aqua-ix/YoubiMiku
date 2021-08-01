@@ -5,6 +5,8 @@
     <string name="miku_nice_to_meet_you">Nice to meet you, %1$s!\nI\'m sorry, but at the moment I only support Japanese.</string>
     <string name="input_text_hint">"Message…"</string>
 
+    <string name="ad_placeholder">Ads</string>
+
     <string name="setting_user_name">Your Name</string>
     <string name="setting_name_title">Hou can I call you?</string>
     <string name="setting_name_hint">Fill Name</string>
