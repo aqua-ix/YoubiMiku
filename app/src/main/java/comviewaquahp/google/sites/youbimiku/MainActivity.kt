@@ -280,6 +280,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             }
         } catch (e: Exception) {
             Log.e(TAG, e.toString())
+            scope.coroutineContext.cancel()
         }
     }
 
