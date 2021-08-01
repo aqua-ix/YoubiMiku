@@ -285,7 +285,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
     public override fun onPause() {
         adView.pause()
-        scope.coroutineContext.cancel()
         super.onPause()
     }
 
@@ -297,6 +296,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     public override fun onDestroy() {
         adView.destroy()
         detectIntent.resetContexts()
+        scope.coroutineContext.cancel()
         super.onDestroy()
     }
 
