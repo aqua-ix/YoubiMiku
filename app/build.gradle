@@ -24,6 +24,7 @@ android {
         release {
             buildConfigField 'String', 'AD_UNIT_ID', '"ca-app-pub-2257844151894297/5850388323"'
             minifyEnabled false
+            shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
