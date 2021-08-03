@@ -9,8 +9,8 @@ android {
         applicationId "comviewaquahp.google.sites.youbimiku"
         minSdkVersion 24
         targetSdkVersion 31
-        versionCode 14
-        versionName "5.0"
+        versionCode 15
+        versionName "5.1"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
     packagingOptions {
@@ -23,9 +23,9 @@ android {
         }
         release {
             buildConfigField 'String', 'AD_UNIT_ID', '"ca-app-pub-2257844151894297/5850388323"'
-            minifyEnabled true
-            shrinkResources true
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+//            minifyEnabled true
+//            shrinkResources true
+//            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
     compileOptions {

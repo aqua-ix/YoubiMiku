@@ -96,8 +96,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         val mikuFace = BitmapFactory.decodeResource(resources, R.drawable.normal)
         userAccount = User(0, null, null)
         mikuAccount = User(1, getString(R.string.miku_name), mikuFace)
-        val mlp = chat_view.layoutParams as ViewGroup.MarginLayoutParams
-        mlp.topMargin = height
+//        val mlp = chat_view.layoutParams as ViewGroup.MarginLayoutParams
+//        mlp.topMargin = height
         chat_view.setDateSeparatorFontSize(0F)
         chat_view.setInputTextHint(getString(R.string.input_text_hint))
         chat_view.setOnClickSendButtonListener(this)
