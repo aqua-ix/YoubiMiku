@@ -19,13 +19,12 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_centerInParent="true"
-        android:layout_alignParentTop="true"
-        android:visibility="invisible">
+        android:layout_alignParentTop="true">
         <TextView
             android:id="@+id/ad_placeholder"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:background="@color/gray300"
+            android:background="@color/blueGray300"
             android:gravity="center"
             android:text="@string/ad_placeholder"/>
     </FrameLayout>

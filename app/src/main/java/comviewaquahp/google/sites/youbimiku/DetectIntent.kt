@@ -7,7 +7,8 @@ import com.google.auth.oauth2.GoogleCredentials
 import com.google.cloud.dialogflow.v2.*
 
 class DetectIntent(
-        context: Context
+        context: Context,
+        private val session: String,
 ) {
 
     companion object {
@@ -15,12 +16,6 @@ class DetectIntent(
         const val PROJECT_ID = "youbimiku-oopulf"
         const val LANGUAGE_CODE = "ja"
         val SCOPE = listOf("https://www.googleapis.com/auth/cloud-platform")
-
-        private fun getSession(): String {
-            val session = "youbimiku" + System.currentTimeMillis()
-            Log.d(TAG, "getSession(): $session")
-            return session
-        }
     }
 
     private val sessionsClient: SessionsClient
@@ -59,7 +54,7 @@ class DetectIntent(
                                         .setText(text)
                                         .setLanguageCode(LANGUAGE_CODE))
                                 .build())
-                .setSession(SessionName.format(PROJECT_ID, getSession()))
+                .setSession(SessionName.format(PROJECT_ID, session))
                 .build()
 
         val res = sessionsClient.detectIntent(request)
@@ -68,6 +63,6 @@ class DetectIntent(
     }
 
     fun resetContexts() {
-        contextClient.deleteAllContexts(SessionName.format(PROJECT_ID, getSession()))
+        contextClient.deleteAllContexts(SessionName.format(PROJECT_ID, session))
     }
 }

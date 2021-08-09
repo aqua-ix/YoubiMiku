@@ -8,4 +8,6 @@
         android:title="@string/setting_submit_review"/>
     <item android:id="@+id/setting_send_feedback"
         android:title="@string/setting_send_feedback"/>
+    <item android:id="@+id/setting_share_app"
+        android:title="@string/setting_share_app"/>
 </menu>

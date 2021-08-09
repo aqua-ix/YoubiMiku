@@ -7,6 +7,8 @@
 
     <string name="ad_placeholder">Ads</string>
 
+    <string name="message_error">An error has occurred. Please check your network connection.</string>
+
     <string name="setting_user_name">Your Name</string>
     <string name="setting_name_title">Hou can I call you?</string>
     <string name="setting_name_hint">Fill Name</string>
@@ -19,6 +21,10 @@
     <string name="setting_font_small">Small</string>
     <string name="setting_font_medium">Medium</string>
     <string name="setting_font_large">Large</string>
+
+    <string name="setting_share_app">Share App</string>
+    <string name="setting_share_app_text">YoubiMiku @youbimiku</string>
+    <string name="setting_share_app_error">App not found</string>
 
     <string name="setting_submit_review">Submit Review</string>
     <string name="setting_submit_review_error">Please Install Play Store</string>

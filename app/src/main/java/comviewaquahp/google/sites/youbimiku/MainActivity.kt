@@ -1,6 +1,7 @@
 package comviewaquahp.google.sites.youbimiku
 
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Build
@@ -31,12 +32,17 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     private lateinit var detectIntent: DetectIntent
     private lateinit var adView: AdManagerAdView
     private var initialLayoutComplete = false
-    private val scope = CoroutineScope(Dispatchers.Default)
+    private val job = SupervisorJob()
+    private val exceptionHandler: CoroutineExceptionHandler = CoroutineExceptionHandler { value, throwable ->
+        Log.e(TAG, throwable.message.toString())
+    }
+    private val scope = CoroutineScope(Dispatchers.Default + job + exceptionHandler) // exceptionHandlerを渡す
 
     public override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        detectIntent = DetectIntent(this)
+
+        detectIntent = DetectIntent(this, getDialogFlowSession())
 
         initChatView(adSize.getHeightInPixels(this))
         initBanner()
@@ -66,9 +72,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     private fun initBanner() {
         MobileAds.initialize(this) {}
         MobileAds.setRequestConfiguration(
-                RequestConfiguration.Builder()
-                        .setTestDeviceIds(listOf("emulator-5554"))
-                        .build()
+                RequestConfiguration.Builder().build()
         )
 
         ad_placeholder.layoutParams.height = adSize.getHeightInPixels(this)
@@ -83,21 +87,22 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     }
 
     private fun loadBanner(adSize: AdSize) {
+        Log.d(TAG, "loadBanner()")
         adView.adUnitId = BuildConfig.AD_UNIT_ID
         adView.setAdSizes(adSize)
         val adRequest = AdManagerAdRequest.Builder().build()
         adView.loadAd(adRequest)
     }
 
-    private fun initChatView(height: Int) {
+    private fun initChatView(adHeight: Int) {
         val size = FontSizeConfig.getSize(getFontSizeType(this))
         setFontSize(size, chat_view)
 
         val mikuFace = BitmapFactory.decodeResource(resources, R.drawable.normal)
         userAccount = User(0, null, null)
         mikuAccount = User(1, getString(R.string.miku_name), mikuFace)
-//        val mlp = chat_view.layoutParams as ViewGroup.MarginLayoutParams
-//        mlp.topMargin = height
+        val mlp = chat_view.layoutParams as ViewGroup.MarginLayoutParams
+        mlp.topMargin = adHeight
         chat_view.setDateSeparatorFontSize(0F)
         chat_view.setInputTextHint(getString(R.string.input_text_hint))
         chat_view.setOnClickSendButtonListener(this)
@@ -198,7 +203,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                 putExtra(Intent.EXTRA_EMAIL, arrayOf(Constants.FEEDBACK_ADDRESS))
                 putExtra(Intent.EXTRA_SUBJECT, getString(R.string.feedback_email_subject))
                 val text = buildString {
-                    append("Model Name: " + Build.MODEL)
+                    append("App Version: " + getVersionName())
+                    append("\nModel Name: " + Build.MODEL)
                     append("\nOS Version: " + Build.VERSION.SDK_INT)
                     append("\n=================\n")
                 }
@@ -207,7 +213,36 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             startActivity(intent)
         } catch (e: Exception) {
             Toast.makeText(this,
-                    getString(R.string.setting_send_feedback_error),
+                getString(R.string.setting_send_feedback_error),
+                Toast.LENGTH_SHORT)
+                .show()
+        }
+    }
+
+    private fun getVersionName(): String{
+        return try {
+            packageManager.getPackageInfo(packageName, 0).versionName
+        }
+        catch (e: Exception){
+            ""
+        }
+    }
+
+    private fun openShareIntent() {
+        try {
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                val text = buildString {
+                    append(getString(R.string.setting_share_app_text))
+                    append("\nhttps://play.google.com/store/apps/details?id=comviewaquahp.google.sites.youbimiku&hl=ja")
+                }
+                putExtra(Intent.EXTRA_TEXT, text)
+                type = "text/plain"
+            }
+            val shareIntent = Intent.createChooser(intent, null)
+            startActivity(shareIntent)
+        } catch (e: Exception) {
+            Toast.makeText(this,
+                    getString(R.string.setting_share_app_error),
                     Toast.LENGTH_SHORT)
                     .show()
         }
@@ -235,6 +270,10 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             }
             R.id.setting_send_feedback -> {
                 openMailer()
+                true
+            }
+            R.id.setting_share_app -> {
+                openShareIntent()
                 true
             }
             else -> super.onOptionsItemSelected(item)
@@ -267,20 +306,21 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         }
     }
 
+    private fun getDialogFlowSession(): String {
+        val session = "youbimiku" + System.currentTimeMillis()
+        Log.d(TAG, "getDialogFlowSession(): $session")
+        return session
+    }
+
     private suspend fun dialogFlowTask(text: String) {
-        try {
-            val response = detectIntent.send(text)
-            val receivedMessage = Message.Builder()
-                    .setUser(mikuAccount)
-                    .setRight(false)
-                    .setText(response)
-                    .build()
-            withContext(Dispatchers.Main) {
-                chat_view.receive(receivedMessage)
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, e.toString())
-            scope.coroutineContext.cancel()
+        val response = detectIntent.send(text)
+        val receivedMessage = Message.Builder()
+                .setUser(mikuAccount)
+                .setRight(false)
+                .setText(response)
+                .build()
+        withContext(Dispatchers.Main) {
+            chat_view.receive(receivedMessage)
         }
     }
 
