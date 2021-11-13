@@ -8,8 +8,8 @@ import com.google.cloud.dialogflow.v2.*
 import java.util.*
 
 class DetectIntent(
-        context: Context,
-        private val session: String,
+    context: Context,
+    private val session: String,
 ) {
 
     companion object {
@@ -23,25 +23,25 @@ class DetectIntent(
 
     init {
         val credentials = GoogleCredentials
-                .fromStream(context.resources.openRawResource(R.raw.dialogflow_secret))
-                .createScoped(SCOPE)
+            .fromStream(context.resources.openRawResource(R.raw.dialogflow_secret))
+            .createScoped(SCOPE)
         sessionsClient = createSessions(credentials)
         contextClient = createContexts(credentials)
     }
 
     private fun createSessions(credentials: GoogleCredentials): SessionsClient {
         val sessionsSetting =
-                SessionsSettings.newBuilder()
-                        .setCredentialsProvider(FixedCredentialsProvider.create(credentials))
-                        .build()
+            SessionsSettings.newBuilder()
+                .setCredentialsProvider(FixedCredentialsProvider.create(credentials))
+                .build()
         return SessionsClient.create(sessionsSetting)
     }
 
     private fun createContexts(credentials: GoogleCredentials): ContextsClient {
         val contextsSettings =
-                ContextsSettings.newBuilder()
-                        .setCredentialsProvider(FixedCredentialsProvider.create(credentials))
-                        .build()
+            ContextsSettings.newBuilder()
+                .setCredentialsProvider(FixedCredentialsProvider.create(credentials))
+                .build()
         return ContextsClient.create(contextsSettings)
     }
 
@@ -49,19 +49,21 @@ class DetectIntent(
         val shouldTranslate = !Locale.getDefault().language.equals("jp")
         val sendText = if (shouldTranslate) TranslateUtil.translateJpToEn(text) else text
         val request = DetectIntentRequest.newBuilder()
-                .setQueryInput(
-                        QueryInput.newBuilder()
-                                .setText(TextInput
-                                        .newBuilder()
-                                        .setText(sendText)
-                                        .setLanguageCode("jp"))
-                                .build())
-                .setSession(SessionName.format(PROJECT_ID, session))
-                .build()
+            .setQueryInput(
+                QueryInput.newBuilder()
+                    .setText(
+                        TextInput
+                            .newBuilder()
+                            .setText(sendText)
+                            .setLanguageCode("jp")
+                    )
+                    .build()
+            )
+            .setSession(SessionName.format(PROJECT_ID, session))
+            .build()
 
         val res = sessionsClient.detectIntent(request)
-
-        if(shouldTranslate) {
+        if (shouldTranslate) {
             return TranslateUtil.translateJpToEn(res.queryResult.fulfillmentText)
         }
 
