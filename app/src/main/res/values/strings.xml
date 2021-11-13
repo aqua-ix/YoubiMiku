@@ -2,7 +2,7 @@
     <string name="app_name">YoubiMiku</string>
     <string name="miku_name">Hatsune Miku</string>
 
-    <string name="miku_nice_to_meet_you">Nice to meet you, %1$s!\nI\'m sorry, but at the moment I only support Japanese.</string>
+    <string name="miku_nice_to_meet_you">Nice to meet you, %1$s!</string>
     <string name="input_text_hint">"Message…"</string>
 
     <string name="ad_placeholder">Ads</string>
