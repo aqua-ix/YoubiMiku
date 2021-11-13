@@ -46,7 +46,7 @@ class DetectIntent(
     }
 
     fun send(text: String): String {
-        val shouldTranslate = !Locale.getDefault().language.equals("jp")
+        val shouldTranslate = !Locale.getDefault().language.equals("ja")
         val sendText = if (shouldTranslate) TranslateUtil.translateEnToJa(text) else text
         val request = DetectIntentRequest.newBuilder()
             .setQueryInput(
