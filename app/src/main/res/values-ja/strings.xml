@@ -31,4 +31,5 @@
     <string name="setting_send_feedback">意見を送る</string>
     <string name="setting_send_feedback_error">メールアプリが見つかりません</string>
     <string name="feedback_email_subject">"[ユビキタ初音ミク] フィードバック"</string>
+    <string name="feedback_email_inquiry">問い合わせ内容: </string>
 </resources>

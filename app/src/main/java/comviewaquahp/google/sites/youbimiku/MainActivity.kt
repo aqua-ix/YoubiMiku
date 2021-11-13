@@ -200,13 +200,14 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         try {
             val intent = Intent(Intent.ACTION_SENDTO).apply {
                 data = Uri.parse("mailto:")
-                putExtra(Intent.EXTRA_EMAIL, arrayOf(Constants.FEEDBACK_ADDRESS))
+                putExtra(Intent.EXTRA_EMAIL, arrayOf(getString(R.string.feedback_email_subject)))
                 putExtra(Intent.EXTRA_SUBJECT, getString(R.string.feedback_email_subject))
                 val text = buildString {
                     append("App Version: " + getVersionName())
                     append("\nModel Name: " + Build.MODEL)
                     append("\nOS Version: " + Build.VERSION.SDK_INT)
                     append("\n=================\n")
+                    append(getString(R.string.feedback_email_inquiry))
                 }
                 putExtra(Intent.EXTRA_TEXT, text)
             }
@@ -233,7 +234,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             val intent = Intent(Intent.ACTION_SEND).apply {
                 val text = buildString {
                     append(getString(R.string.setting_share_app_text))
-                    append("\nhttps://play.google.com/store/apps/details?id=comviewaquahp.google.sites.youbimiku&hl=ja")
+                    append("\n")
+                    append(getString(R.string.setting_share_app_url))
                 }
                 putExtra(Intent.EXTRA_TEXT, text)
                 type = "text/plain"

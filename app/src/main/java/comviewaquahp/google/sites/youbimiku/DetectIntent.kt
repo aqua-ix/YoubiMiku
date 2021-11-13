@@ -5,6 +5,7 @@ import android.util.Log
 import com.google.api.gax.core.FixedCredentialsProvider
 import com.google.auth.oauth2.GoogleCredentials
 import com.google.cloud.dialogflow.v2.*
+import java.util.*
 
 class DetectIntent(
         context: Context,
@@ -14,7 +15,6 @@ class DetectIntent(
     companion object {
         private const val TAG = "DetectIntent"
         const val PROJECT_ID = "youbimiku-oopulf"
-        const val LANGUAGE_CODE = "ja"
         val SCOPE = listOf("https://www.googleapis.com/auth/cloud-platform")
     }
 
@@ -52,7 +52,7 @@ class DetectIntent(
                                 .setText(TextInput
                                         .newBuilder()
                                         .setText(text)
-                                        .setLanguageCode(LANGUAGE_CODE))
+                                        .setLanguageCode((if (Locale.getDefault().language.equals("ja")) "ja" else "en")))
                                 .build())
                 .setSession(SessionName.format(PROJECT_ID, session))
                 .build()
