@@ -47,7 +47,7 @@ class DetectIntent(
 
     fun send(text: String): String {
         val shouldTranslate = !Locale.getDefault().language.equals("jp")
-        val sendText = if (shouldTranslate) TranslateUtil.translateJpToEn(text) else text
+        val sendText = if (shouldTranslate) TranslateUtil.translateEnToJa(text) else text
         val request = DetectIntentRequest.newBuilder()
             .setQueryInput(
                 QueryInput.newBuilder()
@@ -63,9 +63,7 @@ class DetectIntent(
             .build()
 
         val res = sessionsClient.detectIntent(request)
-        if (shouldTranslate) {
-            return TranslateUtil.translateJpToEn(res.queryResult.fulfillmentText)
-        }
+        if (shouldTranslate) return TranslateUtil.translateJaToEn(res.queryResult.fulfillmentText)
 
         Log.d(TAG, "response result : ${res.queryResult}")
         return res.queryResult.fulfillmentText
