@@ -10,7 +10,7 @@
     <string name="message_error">An error has occurred. Please check your network connection.</string>
 
     <string name="setting_user_name">Your Name</string>
-    <string name="setting_name_title">Hou can I call you?</string>
+    <string name="setting_name_title">How can I call you?</string>
     <string name="setting_name_hint">Fill Name</string>
     <string name="setting_user_name_empty">Please enter your username</string>
     <string name="setting_dialog_accept">OK</string>
@@ -24,11 +24,16 @@
 
     <string name="setting_share_app">Share App</string>
     <string name="setting_share_app_text">YoubiMiku @youbimiku</string>
+    <string name="setting_share_app_url" translatable="false">
+        https://play.google.com/store/apps/details?id=comviewaquahp.google.sites.youbimiku
+    </string>
     <string name="setting_share_app_error">App not found</string>
 
     <string name="setting_submit_review">Submit Review</string>
     <string name="setting_submit_review_error">Please Install Play Store</string>
     <string name="setting_send_feedback">Send Feedback</string>
     <string name="setting_send_feedback_error">Please Install Mail App</string>
-    <string name="feedback_email_subject">"[YoubiMiku] FeedBack"</string>
+    <string name="feedback_email_subject">[YoubiMiku] FeedBack</string>
+    <string name="feedback_email_address" translatable="false">aquapinfo@gmail.com</string>
+    <string name="feedback_email_inquiry">Inquiry: </string>
 </resources>
