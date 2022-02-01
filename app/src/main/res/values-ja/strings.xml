@@ -22,6 +22,10 @@
     <string name="setting_font_medium">中</string>
     <string name="setting_font_large">大</string>
 
+    <string name="setting_language">言語</string>
+    <string name="setting_language_jp">日本語</string>
+    <string name="setting_language_en">英語</string>
+
     <string name="setting_share_app">シェアする</string>
     <string name="setting_share_app_text">ユビキタ初音ミク @youbimiku</string>
     <string name="setting_share_app_error">アプリが見つかりません</string>
@@ -31,5 +35,5 @@
     <string name="setting_send_feedback">意見を送る</string>
     <string name="setting_send_feedback_error">メールアプリが見つかりません</string>
     <string name="feedback_email_subject">"[ユビキタ初音ミク] フィードバック"</string>
-    <string name="feedback_email_inquiry">問い合わせ内容: </string>
+    <string name="feedback_email_inquiry">本文: </string>
 </resources>

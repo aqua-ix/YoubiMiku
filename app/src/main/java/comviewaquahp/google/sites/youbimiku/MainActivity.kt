@@ -24,6 +24,7 @@ import com.google.android.play.core.review.ReviewManagerFactory
 import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.coroutines.*
 import java.lang.Exception
+import java.util.*
 
 class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     private lateinit var userAccount: User
@@ -33,10 +34,12 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     private lateinit var adView: AdManagerAdView
     private var initialLayoutComplete = false
     private val job = SupervisorJob()
-    private val exceptionHandler: CoroutineExceptionHandler = CoroutineExceptionHandler { value, throwable ->
-        Log.e(TAG, throwable.message.toString())
-    }
-    private val scope = CoroutineScope(Dispatchers.Default + job + exceptionHandler) // exceptionHandlerを渡す
+    private val exceptionHandler: CoroutineExceptionHandler =
+        CoroutineExceptionHandler { value, throwable ->
+            Log.e(TAG, throwable.message.toString())
+        }
+    private val scope =
+        CoroutineScope(Dispatchers.Default + job + exceptionHandler) // exceptionHandlerを渡す
 
     public override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -46,7 +49,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
         initChatView(adSize.getHeightInPixels(this))
         initBanner()
-        
+
         showUserNameDialogIfNeeded()
         showInAppReviewIfNeeded()
     }
@@ -72,7 +75,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     private fun initBanner() {
         MobileAds.initialize(this) {}
         MobileAds.setRequestConfiguration(
-                RequestConfiguration.Builder().build()
+            RequestConfiguration.Builder().build()
         )
 
         ad_placeholder.layoutParams.height = adSize.getHeightInPixels(this)
@@ -111,10 +114,10 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     private fun showGreet(userName: String?) {
         val greeting = resources.getString(R.string.miku_nice_to_meet_you, userName)
         val welcome = Message.Builder()
-                .setUser(mikuAccount)
-                .setRight(false)
-                .setText(greeting)
-                .build()
+            .setUser(mikuAccount)
+            .setRight(false)
+            .setText(greeting)
+            .build()
         chat_view.receive(welcome)
     }
 
@@ -158,17 +161,33 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     private fun showFontSizeDialog() {
         val index = FontSizeConfig.getType(getFontSizeType(this)).ordinal
         AlertDialog.Builder(this)
-                .setTitle(getString(R.string.setting_font_size))
-                .setSingleChoiceItems(R.array.font_size_config, index) { _, which ->
-                    setFontSize(FontSizeConfig.getSize(which), chat_view)
-                    SharedPreferenceManager.put(
-                            this,
-                            Key.FONT_SIZE.name,
-                            FontSizeConfig.getType(which).name
-                    )
-                }
-                .setPositiveButton(getString(R.string.setting_dialog_accept), null)
-                .show()
+            .setTitle(getString(R.string.setting_font_size))
+            .setSingleChoiceItems(R.array.font_size_config, index) { _, which ->
+                setFontSize(FontSizeConfig.getSize(which), chat_view)
+                SharedPreferenceManager.put(
+                    this,
+                    Key.FONT_SIZE.name,
+                    FontSizeConfig.getType(which).name
+                )
+            }
+            .setPositiveButton(getString(R.string.setting_dialog_accept), null)
+            .show()
+    }
+
+    private fun showLanguageDialog() {
+        val index = LanguageConfig.getType(getLanguage(this)).ordinal
+
+        AlertDialog.Builder(this)
+            .setTitle(getString(R.string.setting_language))
+            .setSingleChoiceItems(R.array.language_config, index) { _, which ->
+                SharedPreferenceManager.put(
+                    this,
+                    Key.LANGUAGE.name,
+                    LanguageConfig.getType(which).name
+                )
+            }
+            .setPositiveButton(getString(R.string.setting_dialog_accept), null)
+            .show()
     }
 
     private fun openPlayStore() {
@@ -177,10 +196,12 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             val intent = Intent(Intent.ACTION_VIEW, uri)
             startActivity(intent)
         } catch (e: Exception) {
-            Toast.makeText(this,
-                    getString(R.string.setting_submit_review_error),
-                    Toast.LENGTH_SHORT)
-                    .show()
+            Toast.makeText(
+                this,
+                getString(R.string.setting_submit_review_error),
+                Toast.LENGTH_SHORT
+            )
+                .show()
         }
     }
 
@@ -189,8 +210,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             val reviewManager = ReviewManagerFactory.create(this)
             reviewManager.requestReviewFlow().addOnSuccessListener { reviewInfo ->
                 reviewManager.launchReviewFlow(this, reviewInfo)
-                        .addOnSuccessListener {
-                        }
+                    .addOnSuccessListener {
+                    }
             }
         } catch (e: Exception) {
         }
@@ -200,7 +221,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         try {
             val intent = Intent(Intent.ACTION_SENDTO).apply {
                 data = Uri.parse("mailto:")
-                putExtra(Intent.EXTRA_EMAIL, arrayOf(getString(R.string.feedback_email_subject)))
+                putExtra(Intent.EXTRA_EMAIL, arrayOf(getString(R.string.feedback_email_address)))
                 putExtra(Intent.EXTRA_SUBJECT, getString(R.string.feedback_email_subject))
                 val text = buildString {
                     append("App Version: " + getVersionName())
@@ -213,18 +234,19 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             }
             startActivity(intent)
         } catch (e: Exception) {
-            Toast.makeText(this,
+            Toast.makeText(
+                this,
                 getString(R.string.setting_send_feedback_error),
-                Toast.LENGTH_SHORT)
+                Toast.LENGTH_SHORT
+            )
                 .show()
         }
     }
 
-    private fun getVersionName(): String{
+    private fun getVersionName(): String {
         return try {
             packageManager.getPackageInfo(packageName, 0).versionName
-        }
-        catch (e: Exception){
+        } catch (e: Exception) {
             ""
         }
     }
@@ -243,10 +265,12 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             val shareIntent = Intent.createChooser(intent, null)
             startActivity(shareIntent)
         } catch (e: Exception) {
-            Toast.makeText(this,
-                    getString(R.string.setting_share_app_error),
-                    Toast.LENGTH_SHORT)
-                    .show()
+            Toast.makeText(
+                this,
+                getString(R.string.setting_share_app_error),
+                Toast.LENGTH_SHORT
+            )
+                .show()
         }
     }
 
@@ -264,6 +288,10 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             }
             R.id.setting_font_size -> {
                 showFontSizeDialog()
+                true
+            }
+            R.id.setting_language -> {
+                showLanguageDialog()
                 true
             }
             R.id.setting_submit_review -> {
@@ -287,11 +315,11 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             return
         }
         val send = Message.Builder()
-                .setUser(userAccount)
-                .setRight(true)
-                .setText(chat_view.inputText)
-                .hideIcon(true)
-                .build()
+            .setUser(userAccount)
+            .setRight(true)
+            .setText(chat_view.inputText)
+            .hideIcon(true)
+            .build()
         sendRequest(chat_view.inputText)
         chat_view.send(send)
         chat_view.inputText = ""
@@ -317,10 +345,10 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     private suspend fun dialogFlowTask(text: String) {
         val response = detectIntent.send(text)
         val receivedMessage = Message.Builder()
-                .setUser(mikuAccount)
-                .setRight(false)
-                .setText(response)
-                .build()
+            .setUser(mikuAccount)
+            .setRight(false)
+            .setText(response)
+            .build()
         withContext(Dispatchers.Main) {
             chat_view.receive(receivedMessage)
         }

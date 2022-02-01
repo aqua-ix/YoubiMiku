@@ -8,7 +8,7 @@ import com.google.cloud.dialogflow.v2.*
 import java.util.*
 
 class DetectIntent(
-    context: Context,
+    val context: Context,
     private val session: String,
 ) {
 
@@ -46,7 +46,7 @@ class DetectIntent(
     }
 
     fun send(text: String): String {
-        val shouldTranslate = !Locale.getDefault().language.equals("ja")
+        val shouldTranslate = getLanguage(context).equals(LanguageConfig.LANGUAGE_EN.name)
         val sendText = if (shouldTranslate) TranslateUtil.translateEnToJa(text) else text
         val request = DetectIntentRequest.newBuilder()
             .setQueryInput(

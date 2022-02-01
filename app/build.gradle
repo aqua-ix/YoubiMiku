@@ -9,8 +9,8 @@ android {
         applicationId "comviewaquahp.google.sites.youbimiku"
         minSdkVersion 21
         targetSdkVersion 31
-        versionCode 18
-        versionName "6.1"
+        versionCode 19
+        versionName "6.2"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
     packagingOptions {

@@ -9,5 +9,8 @@ class Constants {
         const val FONT_SIZE_SMALL = 35f
         const val FONT_SIZE_MEDIUM = 45f
         const val FONT_SIZE_LARGE = 55f
+
+        const val LANGUAGE_JP = "jp"
+        const val LANGUAGE_EN = "en"
     }
 }

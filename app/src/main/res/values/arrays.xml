@@ -6,4 +6,9 @@
         <item>@string/setting_font_medium</item>
         <item>@string/setting_font_large</item>
     </array>
+
+    <array name="language_config">
+        <item>@string/setting_language_jp</item>
+        <item>@string/setting_language_en</item>
+    </array>
 </resources>

@@ -33,5 +33,6 @@ open class SharedPreferenceManager {
 enum class Key {
     USER_NAME,
     FONT_SIZE,
-    LAUNCH_COUNT
+    LANGUAGE,
+    LAUNCH_COUNT,
 }

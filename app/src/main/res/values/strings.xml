@@ -22,6 +22,10 @@
     <string name="setting_font_medium">Medium</string>
     <string name="setting_font_large">Large</string>
 
+    <string name="setting_language">Language</string>
+    <string name="setting_language_jp">Japanese</string>
+    <string name="setting_language_en">English</string>
+
     <string name="setting_share_app">Share App</string>
     <string name="setting_share_app_text">YoubiMiku @youbimiku</string>
     <string name="setting_share_app_url" translatable="false">
@@ -31,7 +35,7 @@
 
     <string name="setting_submit_review">Submit Review</string>
     <string name="setting_submit_review_error">Please Install Play Store</string>
-    <string name="setting_send_feedback">Send Feedback</string>
+    <string name="setting_send_feedback">Send Opinion</string>
     <string name="setting_send_feedback_error">Please Install Mail App</string>
     <string name="feedback_email_subject">[YoubiMiku] FeedBack</string>
     <string name="feedback_email_address" translatable="false">aquapinfo@gmail.com</string>
