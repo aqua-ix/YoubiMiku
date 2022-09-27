@@ -47,7 +47,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
         detectIntent = DetectIntent(this, getDialogFlowSession())
 
-        initChatView(adSize.getHeightInPixels(this))
+        initChatView()
         initBanner()
 
         showUserNameDialogIfNeeded()
@@ -68,7 +68,11 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             }
 
             val adWidth = (adWidthPixels / density).toInt()
-            return AdSize.getCurrentOrientationAnchoredAdaptiveBannerAdSize(this, adWidth)
+            return if(BuildConfig.FLAVOR == "ads") {
+                AdSize.getCurrentOrientationAnchoredAdaptiveBannerAdSize(this, adWidth)
+            } else {
+                AdSize(0, 0)
+            }
         }
 
 
@@ -97,7 +101,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         adView.loadAd(adRequest)
     }
 
-    private fun initChatView(adHeight: Int) {
+    private fun initChatView() {
         val size = FontSizeConfig.getSize(getFontSizeType(this))
         setFontSize(size, chat_view)
 
@@ -105,7 +109,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         userAccount = User(0, null, null)
         mikuAccount = User(1, getString(R.string.miku_name), mikuFace)
         val mlp = chat_view.layoutParams as ViewGroup.MarginLayoutParams
-        mlp.topMargin = adHeight
+        mlp.topMargin = adSize.getHeightInPixels(this)
         chat_view.setDateSeparatorFontSize(0F)
         chat_view.setInputTextHint(getString(R.string.input_text_hint))
         chat_view.setOnClickSendButtonListener(this)

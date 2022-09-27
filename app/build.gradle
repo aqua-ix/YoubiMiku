@@ -28,6 +28,15 @@ android {
             // proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
+    productFlavors {
+        flavorDimensions 'main'
+        ads {
+            dimension "main"
+        }
+        noAds {
+            dimension "main"
+        }
+    }
     compileOptions {
         sourceCompatibility = 1.8
         targetCompatibility = 1.8
