@@ -35,9 +35,9 @@ class UserNameDialogFragment : DialogFragment() {
             .create()
         dialog.show()
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-            val name = binding.editText?.text.toString()
+            val name = binding.editText.text.toString()
             if (name.isEmpty()) {
-                binding.editText?.error = getString(R.string.setting_user_name_empty)
+                binding.editText.error = getString(R.string.setting_user_name_empty)
             } else {
                 SharedPreferenceManager.put(
                     requireContext(),
