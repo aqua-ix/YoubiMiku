@@ -5,7 +5,6 @@ import android.os.Bundle
 import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.DialogFragment
 import comviewaquahp.google.sites.youbimiku.databinding.UserNameDialogBinding
-import kotlinx.android.synthetic.main.user_name_dialog.view.*
 import java.util.*
 
 interface DialogListener : EventListener {
@@ -22,7 +21,7 @@ class UserNameDialogFragment : DialogFragment() {
         binding = UserNameDialogBinding.inflate(requireActivity().layoutInflater)
         val view = binding.root
 
-        view.editText.setText(getUserName(requireContext()))
+        binding.editText.setText(getUserName(requireContext()))
 
         val builder = AlertDialog.Builder(requireContext())
         builder.setPositiveButton(getString(R.string.setting_dialog_accept)) { _, _ -> }
@@ -36,9 +35,9 @@ class UserNameDialogFragment : DialogFragment() {
             .create()
         dialog.show()
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-            val name = view.editText?.text.toString()
+            val name = binding.editText?.text.toString()
             if (name.isEmpty()) {
-                view.editText?.error = getString(R.string.setting_user_name_empty)
+                binding.editText?.error = getString(R.string.setting_user_name_empty)
             } else {
                 SharedPreferenceManager.put(
                     requireContext(),
