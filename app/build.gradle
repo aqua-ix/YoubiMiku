@@ -14,8 +14,9 @@ android {
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
     packagingOptions {
-        exclude 'META-INF/INDEX.LIST'
-        exclude 'META-INF/DEPENDENCIES'
+        resources {
+            excludes += ['META-INF/INDEX.LIST', 'META-INF/DEPENDENCIES']
+        }
     }
     buildTypes {
         debug {
@@ -47,6 +48,7 @@ android {
         // but continue the build even when errors are found:
         abortOnError false
     }
+    namespace 'comviewaquahp.google.sites.youbimiku'
 }
 
 dependencies {
