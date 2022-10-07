@@ -1,7 +1,6 @@
 package comviewaquahp.google.sites.youbimiku
 
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Build
@@ -17,19 +16,20 @@ import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.github.bassaer.chatmessageview.model.Message
-import com.google.android.gms.ads.*
+import com.google.android.gms.ads.AdSize
+import com.google.android.gms.ads.MobileAds
+import com.google.android.gms.ads.RequestConfiguration
 import com.google.android.gms.ads.admanager.AdManagerAdRequest
 import com.google.android.gms.ads.admanager.AdManagerAdView
 import com.google.android.play.core.review.ReviewManagerFactory
-import kotlinx.android.synthetic.main.activity_main.*
+import comviewaquahp.google.sites.youbimiku.databinding.ActivityMainBinding
 import kotlinx.coroutines.*
-import java.lang.Exception
-import java.util.*
 
 class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     private lateinit var userAccount: User
     private lateinit var mikuAccount: User
 
+    private lateinit var binding: ActivityMainBinding
     private lateinit var detectIntent: DetectIntent
     private lateinit var adView: AdManagerAdView
     private var initialLayoutComplete = false
@@ -43,7 +43,9 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
     public override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        val view = binding.root
+        setContentView(view)
 
         detectIntent = DetectIntent(this, getDialogFlowSession())
 
@@ -62,13 +64,13 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
             val density = outMetrics.density
 
-            var adWidthPixels = ad_view_container.width.toFloat()
+            var adWidthPixels = binding.adViewContainer.width.toFloat()
             if (adWidthPixels == 0f) {
                 adWidthPixels = outMetrics.widthPixels.toFloat()
             }
 
             val adWidth = (adWidthPixels / density).toInt()
-            return if(BuildConfig.FLAVOR == "ads") {
+            return if (BuildConfig.FLAVOR == "ads") {
                 AdSize.getCurrentOrientationAnchoredAdaptiveBannerAdSize(this, adWidth)
             } else {
                 AdSize(0, 0)
@@ -82,10 +84,10 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             RequestConfiguration.Builder().build()
         )
 
-        ad_placeholder.layoutParams.height = adSize.getHeightInPixels(this)
+        binding.adPlaceholder.layoutParams.height = adSize.getHeightInPixels(this)
         adView = AdManagerAdView(this)
-        ad_view_container.addView(adView)
-        ad_view_container.viewTreeObserver.addOnGlobalLayoutListener {
+        binding.adViewContainer.addView(adView)
+        binding.adViewContainer.viewTreeObserver.addOnGlobalLayoutListener {
             if (!initialLayoutComplete) {
                 initialLayoutComplete = true
                 loadBanner(adSize)
@@ -103,16 +105,16 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
     private fun initChatView() {
         val size = FontSizeConfig.getSize(getFontSizeType(this))
-        setFontSize(size, chat_view)
+        setFontSize(size, binding.chatView)
 
         val mikuFace = BitmapFactory.decodeResource(resources, R.drawable.normal)
         userAccount = User(0, null, null)
         mikuAccount = User(1, getString(R.string.miku_name), mikuFace)
-        val mlp = chat_view.layoutParams as ViewGroup.MarginLayoutParams
+        val mlp = binding.chatView.layoutParams as ViewGroup.MarginLayoutParams
         mlp.topMargin = adSize.getHeightInPixels(this)
-        chat_view.setDateSeparatorFontSize(0F)
-        chat_view.setInputTextHint(getString(R.string.input_text_hint))
-        chat_view.setOnClickSendButtonListener(this)
+        binding.chatView.setDateSeparatorFontSize(0F)
+        binding.chatView.setInputTextHint(getString(R.string.input_text_hint))
+        binding.chatView.setOnClickSendButtonListener(this)
     }
 
     private fun showGreet(userName: String?) {
@@ -122,7 +124,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             .setRight(false)
             .setText(greeting)
             .build()
-        chat_view.receive(welcome)
+        binding.chatView.receive(welcome)
     }
 
     private fun showInAppReviewIfNeeded() {
@@ -154,7 +156,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         args.putBoolean(Constants.ARGUMENT_CANCELABLE, cancelable)
         dialog.arguments = args
         dialog.setDialogListener(this)
-        dialog.show(fragmentManager, UserNameDialogFragment::class.java.name)
+        dialog.show(supportFragmentManager, UserNameDialogFragment::class.java.name)
     }
 
     override fun doPositiveClick() {
@@ -167,7 +169,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         AlertDialog.Builder(this)
             .setTitle(getString(R.string.setting_font_size))
             .setSingleChoiceItems(R.array.font_size_config, index) { _, which ->
-                setFontSize(FontSizeConfig.getSize(which), chat_view)
+                setFontSize(FontSizeConfig.getSize(which), binding.chatView)
                 SharedPreferenceManager.put(
                     this,
                     Key.FONT_SIZE.name,
@@ -315,18 +317,18 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     }
 
     override fun onClick(v: View) {
-        if (chat_view.inputText.isEmpty()) {
+        if (binding.chatView.inputText.isEmpty()) {
             return
         }
         val send = Message.Builder()
             .setUser(userAccount)
             .setRight(true)
-            .setText(chat_view.inputText)
+            .setText(binding.chatView.inputText)
             .hideIcon(true)
             .build()
-        sendRequest(chat_view.inputText)
-        chat_view.send(send)
-        chat_view.inputText = ""
+        sendRequest(binding.chatView.inputText)
+        binding.chatView.send(send)
+        binding.chatView.inputText = ""
     }
 
     private fun sendRequest(text: String) {
@@ -354,7 +356,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             .setText(response)
             .build()
         withContext(Dispatchers.Main) {
-            chat_view.receive(receivedMessage)
+            binding.chatView.receive(receivedMessage)
         }
     }
 
