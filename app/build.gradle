@@ -3,6 +3,7 @@ plugins {
     id 'kotlin-android'
     id 'kotlin-parcelize'
     id 'com.google.gms.google-services'
+    id 'com.google.android.libraries.mapsplatform.secrets-gradle-plugin'
 }
 
 android {
@@ -22,10 +23,8 @@ android {
     }
     buildTypes {
         debug {
-            buildConfigField 'String', 'AD_UNIT_ID', '"ca-app-pub-3940256099942544/6300978111"'
         }
         release {
-            buildConfigField 'String', 'AD_UNIT_ID', '"ca-app-pub-2257844151894297/5003833212"'
             // minifyEnabled true
             // shrinkResources true
             // proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
@@ -77,4 +76,9 @@ dependencies {
     implementation 'androidx.work:work-runtime-ktx:2.8.0-beta01'
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4"
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4'
+}
+
+secrets {
+    propertiesFileName = "secrets.properties"
+    defaultPropertiesFileName = "secrets.defaults.properties"
 }

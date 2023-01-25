@@ -9,3 +9,6 @@
 *.ser
 app/google-services.json
 app/src/main/res/raw/dialogflow_secret.json
+debug.properties
+release.properties
+secrets.properties

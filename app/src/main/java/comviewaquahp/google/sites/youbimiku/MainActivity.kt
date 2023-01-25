@@ -97,7 +97,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
     private fun loadBanner(adSize: AdSize) {
         Log.d(TAG, "loadBanner()")
-        adView.adUnitId = BuildConfig.AD_UNIT_ID
+        adView.adUnitId = BuildConfig.adUnitId
         adView.setAdSizes(adSize)
         val adRequest = AdManagerAdRequest.Builder().build()
         adView.loadAd(adRequest)
