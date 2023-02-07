@@ -1,5 +1,6 @@
 package comviewaquahp.google.sites.youbimiku
 
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.graphics.BitmapFactory
 import android.net.Uri
@@ -20,11 +21,11 @@ import com.aallam.openai.api.completion.TextCompletion
 import com.aallam.openai.api.model.ModelId
 import com.aallam.openai.client.OpenAI
 import com.github.bassaer.chatmessageview.model.Message
-import com.google.android.gms.ads.AdSize
-import com.google.android.gms.ads.MobileAds
-import com.google.android.gms.ads.RequestConfiguration
+import com.google.android.gms.ads.*
 import com.google.android.gms.ads.admanager.AdManagerAdRequest
 import com.google.android.gms.ads.admanager.AdManagerAdView
+import com.google.android.gms.ads.interstitial.InterstitialAd
+import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
 import com.google.android.play.core.review.ReviewManagerFactory
 import comviewaquahp.google.sites.youbimiku.databinding.ActivityMainBinding
 import kotlinx.coroutines.*
@@ -36,7 +37,10 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     private lateinit var binding: ActivityMainBinding
     private lateinit var detectIntent: DetectIntent
     private lateinit var adView: AdManagerAdView
+    private lateinit var interstitialAd: InterstitialAd
     private lateinit var openAI: OpenAI
+
+    private var openAIRequestCount = 0
     private var initialLayoutComplete = false
     private val job = SupervisorJob()
     private val exceptionHandler: CoroutineExceptionHandler =
@@ -61,10 +65,17 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
         openAI = OpenAI(BuildConfig.openAIKey)
         setup()
-    }
 
-    public override fun onStart() {
-        super.onStart()
+        val adRequest = AdRequest.Builder().build()
+        InterstitialAd.load(this,BuildConfig.adInterstitialUnitId, adRequest, object : InterstitialAdLoadCallback() {
+            override fun onAdFailedToLoad(adError: LoadAdError) {
+                Log.d(TAG, adError.message)
+            }
+            override fun onAdLoaded(ad: InterstitialAd) {
+                Log.d(TAG, "Ad was loaded.")
+                interstitialAd = ad
+            }
+        })
     }
 
     private val adSize: AdSize
@@ -108,7 +119,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
     private fun loadBanner(adSize: AdSize) {
         Log.d(TAG, "loadBanner()")
-        adView.adUnitId = BuildConfig.adUnitId
+        adView.adUnitId = BuildConfig.adBannerUnitId
         adView.setAdSizes(adSize)
         val adRequest = AdManagerAdRequest.Builder().build()
         adView.loadAd(adRequest)
@@ -207,6 +218,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             .setPositiveButton(getString(R.string.setting_ai_model_openai)) { _, _ ->
                 setAIModel(this, AIModelConfig.OPEN_AI)
                 mikuAccount = getMikuAccount()
+
+                interstitialAd.show(this)
             }
             .setNegativeButton(getString(R.string.setting_ai_model_dialogflow)) { _, _ ->
                 setAIModel(this, AIModelConfig.DIALOG_FLOW)
@@ -215,7 +228,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             .setCancelable(cancelable)
             .show()
     }
-
 
     private fun showFontSizeDialog() {
         val index = FontSizeConfig.getType(getFontSizeType(this)).ordinal
@@ -390,12 +402,18 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         when (getAIModel(this)) {
             AIModelConfig.OPEN_AI.name ->
                 scope.launch {
+                    openAIRequestCount++
                     openAITask("${userAccount.getName()}: ${text}\n${getString(R.string.miku_name)}: ")
                 }
             else ->
                 scope.launch {
                     dialogFlowTask(text)
                 }
+        }
+
+        if (openAIRequestCount >= Constants.MAX_COUNT_TO_AD) {
+            interstitialAd.show(this)
+            openAIRequestCount = 0
         }
     }
 

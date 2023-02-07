@@ -12,5 +12,7 @@ class Constants {
 
         const val LANGUAGE_JP = "jp"
         const val LANGUAGE_EN = "en"
+
+        const val MAX_COUNT_TO_AD = 30
     }
 }
