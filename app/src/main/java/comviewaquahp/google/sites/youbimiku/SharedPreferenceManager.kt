@@ -35,4 +35,5 @@ enum class Key {
     FONT_SIZE,
     LANGUAGE,
     LAUNCH_COUNT,
+    AI_MODEL,
 }

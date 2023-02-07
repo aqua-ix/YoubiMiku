@@ -15,6 +15,10 @@ import android.view.ViewGroup
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import com.aallam.openai.api.completion.CompletionRequest
+import com.aallam.openai.api.completion.TextCompletion
+import com.aallam.openai.api.model.ModelId
+import com.aallam.openai.client.OpenAI
 import com.github.bassaer.chatmessageview.model.Message
 import com.google.android.gms.ads.AdSize
 import com.google.android.gms.ads.MobileAds
@@ -32,6 +36,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     private lateinit var binding: ActivityMainBinding
     private lateinit var detectIntent: DetectIntent
     private lateinit var adView: AdManagerAdView
+    private lateinit var openAI: OpenAI
     private var initialLayoutComplete = false
     private val job = SupervisorJob()
     private val exceptionHandler: CoroutineExceptionHandler =
@@ -52,8 +57,14 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         initChatView()
         initBanner()
 
-        showUserNameDialogIfNeeded()
         showInAppReviewIfNeeded()
+
+        openAI = OpenAI(BuildConfig.openAIKey)
+        setup()
+    }
+
+    public override fun onStart() {
+        super.onStart()
     }
 
     private val adSize: AdSize
@@ -107,14 +118,24 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         val size = FontSizeConfig.getSize(getFontSizeType(this))
         setFontSize(size, binding.chatView)
 
-        val mikuFace = BitmapFactory.decodeResource(resources, R.drawable.normal)
         userAccount = User(0, null, null)
-        mikuAccount = User(1, getString(R.string.miku_name), mikuFace)
+        mikuAccount = getMikuAccount()
         val mlp = binding.chatView.layoutParams as ViewGroup.MarginLayoutParams
         mlp.topMargin = adSize.getHeightInPixels(this)
         binding.chatView.setDateSeparatorFontSize(0F)
         binding.chatView.setInputTextHint(getString(R.string.input_text_hint))
         binding.chatView.setOnClickSendButtonListener(this)
+    }
+
+    private fun getMikuAccount(): User {
+        return if (getAIModel(this) == (AIModelConfig.OPEN_AI.name)) {
+            val face = BitmapFactory.decodeResource(resources, R.drawable.glad)
+            val name = "${getString(R.string.miku_name)}(GPT)"
+            User(2, name, face)
+        } else {
+            val face = BitmapFactory.decodeResource(resources, R.drawable.normal)
+            User(1, getString(R.string.miku_name), face)
+        }
     }
 
     private fun showGreet(userName: String?) {
@@ -125,6 +146,13 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             .setText(greeting)
             .build()
         binding.chatView.receive(welcome)
+    }
+
+    private fun showOpenAIGreet(userName: String?) {
+        val greeting = resources.getString(R.string.user_nice_to_meet_you, userName)
+        scope.launch {
+            openAITask("${userAccount.getName()}: ${greeting}\n${getString(R.string.miku_name)}:")
+        }
     }
 
     private fun showInAppReviewIfNeeded() {
@@ -141,13 +169,21 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         }
     }
 
-    private fun showUserNameDialogIfNeeded() {
+    private fun setup() {
         if (getUserName(this).equals("")) {
             showUserNameDialog(false)
         } else {
             userAccount.setName(getUserName(this).toString())
-            showGreet(getUserName(this))
+            when (getAIModel(this)) {
+                AIModelConfig.OPEN_AI.name -> showOpenAIGreet(getUserName(this))
+                else -> showGreet(getUserName(this))
+            }
         }
+
+        if (getAIModel(this).equals("")) {
+            showAIModelDialog(false)
+        }
+
     }
 
     private fun showUserNameDialog(cancelable: Boolean = true) {
@@ -163,6 +199,23 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         userAccount.setName(getUserName(this).toString())
         showGreet(getUserName(this))
     }
+
+    private fun showAIModelDialog(cancelable: Boolean = true) {
+        AlertDialog.Builder(this)
+            .setTitle(getString(R.string.setting_ai_model))
+            .setMessage(getString(R.string.setting_ai_model_message))
+            .setPositiveButton(getString(R.string.setting_ai_model_openai)) { _, _ ->
+                setAIModel(this, AIModelConfig.OPEN_AI)
+                mikuAccount = getMikuAccount()
+            }
+            .setNegativeButton(getString(R.string.setting_ai_model_dialogflow)) { _, _ ->
+                setAIModel(this, AIModelConfig.DIALOG_FLOW)
+                mikuAccount = getMikuAccount()
+            }
+            .setCancelable(cancelable)
+            .show()
+    }
+
 
     private fun showFontSizeDialog() {
         val index = FontSizeConfig.getType(getFontSizeType(this)).ordinal
@@ -257,23 +310,15 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         }
     }
 
-    private fun openShareIntent() {
+    private fun openOfficialAccountIntent() {
         try {
-            val intent = Intent(Intent.ACTION_SEND).apply {
-                val text = buildString {
-                    append(getString(R.string.setting_share_app_text))
-                    append("\n")
-                    append(getString(R.string.setting_share_app_url))
-                }
-                putExtra(Intent.EXTRA_TEXT, text)
-                type = "text/plain"
-            }
-            val shareIntent = Intent.createChooser(intent, null)
-            startActivity(shareIntent)
+            val uri = Uri.parse("https://twitter.com/youbimiku")
+            val intent = Intent(Intent.ACTION_VIEW, uri)
+            startActivity(intent)
         } catch (e: Exception) {
             Toast.makeText(
                 this,
-                getString(R.string.setting_share_app_error),
+                getString(R.string.official_account_error),
                 Toast.LENGTH_SHORT
             )
                 .show()
@@ -292,6 +337,10 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                 showUserNameDialog()
                 true
             }
+            R.id.setting_ai_model -> {
+                showAIModelDialog()
+                true
+            }
             R.id.setting_font_size -> {
                 showFontSizeDialog()
                 true
@@ -308,8 +357,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                 openMailer()
                 true
             }
-            R.id.setting_share_app -> {
-                openShareIntent()
+            R.id.setting_official_account -> {
+                openOfficialAccountIntent()
                 true
             }
             else -> super.onOptionsItemSelected(item)
@@ -337,8 +386,16 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             Log.e(TAG, Constants.LOGGER_EMPTY_QUERY)
             return
         }
-        scope.launch {
-            dialogFlowTask(text)
+
+        when (getAIModel(this)) {
+            AIModelConfig.OPEN_AI.name ->
+                scope.launch {
+                    openAITask("${userAccount.getName()}: ${text}\n${getString(R.string.miku_name)}: ")
+                }
+            else ->
+                scope.launch {
+                    dialogFlowTask(text)
+                }
         }
     }
 
@@ -354,6 +411,26 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             .setUser(mikuAccount)
             .setRight(false)
             .setText(response)
+            .build()
+        withContext(Dispatchers.Main) {
+            binding.chatView.receive(receivedMessage)
+        }
+    }
+
+    private suspend fun openAITask(text: String) {
+        val completionRequest = CompletionRequest(
+            model = ModelId("text-davinci-003"),
+            prompt = "${userAccount.getName()}: ${text}\n${mikuAccount.getName()}:",
+            maxTokens = 256,
+            echo = false,
+            stop = listOf("\n")
+        )
+        val completion: TextCompletion = openAI.completion(completionRequest)
+        val receivedText = completion.choices.first().text.replace(" ", "")
+        val receivedMessage = Message.Builder()
+            .setUser(mikuAccount)
+            .setRight(false)
+            .setText(receivedText)
             .build()
         withContext(Dispatchers.Main) {
             binding.chatView.receive(receivedMessage)
