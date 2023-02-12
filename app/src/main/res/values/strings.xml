@@ -18,8 +18,8 @@
     <string name="setting_dialog_cancel">Cancel</string>
 
     <string name="setting_ai_model">AI Model</string>
-    <string name="setting_ai_model_message">You can now talk to Hatsune Miku with the GPT model!\n\n*You will see more ads in GPT mode.\n\n*AI Model can be changed at any time.</string>
-    <string name="setting_ai_model_dialogflow">Talk with normal model</string>
+    <string name="setting_ai_model_message">You can now talk to Hatsune Miku with the GPT model!\n\n*The GPT model Hatsune Miku may not be able to respond depending on the status of the service. In that case, please enjoy the conversation with the standard model.\n\n*AI Model can be changed at any time.</string>
+    <string name="setting_ai_model_dialogflow">Talk with standard model</string>
     <string name="setting_ai_model_openai">Try GPT model (Beta)</string>
 
     <string name="setting_font_size">Font Size</string>

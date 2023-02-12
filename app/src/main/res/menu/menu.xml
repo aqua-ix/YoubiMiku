@@ -8,10 +8,6 @@
         android:title="@string/setting_language"/>
     <item android:id="@+id/setting_font_size"
         android:title="@string/setting_font_size"/>
-    <item android:id="@+id/setting_submit_review"
-        android:title="@string/setting_submit_review"/>
-    <item android:id="@+id/setting_send_feedback"
-        android:title="@string/setting_send_feedback"/>
     <item android:id="@+id/setting_official_account"
         android:title="@string/official_account"/>
 </menu>

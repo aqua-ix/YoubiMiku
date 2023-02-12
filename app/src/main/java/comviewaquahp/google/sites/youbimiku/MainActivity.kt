@@ -5,7 +5,6 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.text.TextUtils
 import android.util.DisplayMetrics
 import android.util.Log
 import android.view.Menu
@@ -16,7 +15,6 @@ import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.aallam.openai.api.completion.CompletionRequest
-import com.aallam.openai.api.completion.TextCompletion
 import com.aallam.openai.api.model.ModelId
 import com.aallam.openai.client.OpenAI
 import com.github.bassaer.chatmessageview.model.Message
@@ -219,7 +217,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             .setPositiveButton(getString(R.string.setting_ai_model_openai)) { _, _ ->
                 setAIModel(this, AIModelConfig.OPEN_AI)
                 mikuAccount = getMikuAccount()
-
                 interstitialAd.show(this)
             }
             .setNegativeButton(getString(R.string.setting_ai_model_dialogflow)) { _, _ ->
@@ -362,14 +359,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                 showLanguageDialog()
                 true
             }
-            R.id.setting_submit_review -> {
-                openPlayStore()
-                true
-            }
-            R.id.setting_send_feedback -> {
-                openMailer()
-                true
-            }
             R.id.setting_official_account -> {
                 openOfficialAccountIntent()
                 true
@@ -395,7 +384,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
     private fun sendRequest(text: String) {
         Log.d(TAG, "request: $text")
-        if (TextUtils.isEmpty(text)) {
+        if (text.isBlank()) {
             Log.e(TAG, "Text should not be empty.")
             return
         }
@@ -441,21 +430,26 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
     private suspend fun openAITask(text: String) {
         val prompt = StringBuilder()
-        if (openAIPreviousResponse.isNotEmpty()) {
+        if(openAIPreviousResponse.isNotEmpty()) {
             prompt.append("${getString(R.string.miku_name)}: ${openAIPreviousResponse}\n")
         }
-        prompt.append("${userAccount.getName()}: ${text}\n${getString(R.string.miku_name)}:")
+        val sendText = if(text.length <= 20) text else text.substring(0, 20)
+        prompt.append("${userAccount.getName()}: ${sendText}\n${getString(R.string.miku_name)}:")
         Log.d(TAG, prompt.toString())
         val completionRequest = CompletionRequest(
-            model = ModelId("text-davinci-003"),
+            model = ModelId(Constants.OPENAI_MODEL),
             prompt = prompt.toString(),
             maxTokens = 256,
             echo = false,
             stop = listOf("\n")
         )
-        val completion: TextCompletion = openAI.completion(completionRequest)
+        val completion = openAI.completion(completionRequest)
+        Log.d(TAG, "completion: $completion")
         val response = completion.choices.first().text.replace(" ", "")
         Log.d(TAG, "response: $response")
+        if(response.isEmpty()) {
+            return
+        }
         openAIPreviousResponse = response
         val receivedMessage = Message.Builder()
             .setUser(mikuAccount)

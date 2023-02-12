@@ -18,7 +18,7 @@
     <string name="setting_user_name_empty">ユーザー名を入力してください。</string>
 
     <string name="setting_ai_model">AIモデルの選択</string>
-    <string name="setting_ai_model_message">より高性能なAI（GPT-3）を搭載した初音ミクさんとの会話が可能になりました！\n\n※GPTモデルでは広告が多くなります。\n※状況により返事が来ないことがあります。\n※モデルはいつでも変更できます。</string>
+    <string name="setting_ai_model_message">より高性能なAI（GPT-3）を搭載した初音ミクさんとの会話が可能になりました！\n\n※GPTモデルの初音ミクさんは、サービスの状況によりお返事ができなくなる可能性があります。その場合は標準モデルとの会話をお楽しみください。\n\n※モデルはいつでも変更できます。</string>
     <string name="setting_ai_model_dialogflow">標準モデルと話す</string>
     <string name="setting_ai_model_openai">GPTモデルと話してみる(ベータ版)</string>
 
