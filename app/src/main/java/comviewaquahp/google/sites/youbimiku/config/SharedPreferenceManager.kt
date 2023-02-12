@@ -36,4 +36,5 @@ enum class Key {
     LANGUAGE,
     LAUNCH_COUNT,
     AI_MODEL,
+    OPENAI_REQUEST_COUNT
 }

@@ -40,7 +40,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     private lateinit var interstitialAd: InterstitialAd
     private lateinit var openAI: OpenAI
 
-    private var openAIRequestCount = 0
     private var openAIPreviousResponse = ""
 
     private var initialLayoutComplete = false
@@ -164,7 +163,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     private fun showOpenAIGreet(userName: String?) {
         val greeting = resources.getString(R.string.user_nice_to_meet_you, userName)
         scope.launch {
-            openAITask("${userAccount.getName()}: ${greeting}\n${getString(R.string.miku_name)}:")
+            openAITask(greeting)
         }
     }
 
@@ -395,17 +394,19 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     }
 
     private fun sendRequest(text: String) {
-        Log.d(TAG, text)
+        Log.d(TAG, "request: $text")
         if (TextUtils.isEmpty(text)) {
-            Log.e(TAG, Constants.LOGGER_EMPTY_QUERY)
+            Log.e(TAG, "Text should not be empty.")
             return
         }
+
+        var count = getOpenAIRequestCount(applicationContext)
 
         when (getAIModel(this)) {
             AIModelConfig.OPEN_AI.name ->
                 scope.launch {
-                    openAIRequestCount++
-                    openAITask("${userAccount.getName()}: ${text}\n${getString(R.string.miku_name)}: ")
+                    setOpenAIRequestCount(applicationContext, ++count)
+                    openAITask(text)
                 }
             else ->
                 scope.launch {
@@ -413,9 +414,9 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                 }
         }
 
-        if (openAIRequestCount >= Constants.MAX_COUNT_TO_AD) {
+        if (count >= OPENAI_REQUEST_COUNT_TO_SHOW_INTERSTITIAL) {
             interstitialAd.show(this)
-            openAIRequestCount = 0
+            setOpenAIRequestCount(applicationContext, 0)
         }
     }
 
@@ -427,6 +428,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
     private suspend fun dialogFlowTask(text: String) {
         val response = detectIntent.send(text)
+        Log.d(TAG, "response: $response")
         val receivedMessage = Message.Builder()
             .setUser(mikuAccount)
             .setRight(false)
@@ -439,10 +441,11 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
     private suspend fun openAITask(text: String) {
         val prompt = StringBuilder()
-        if (!openAIPreviousResponse.isEmpty()) {
-            prompt.append("${mikuAccount.getName()}:\n")
+        if (openAIPreviousResponse.isNotEmpty()) {
+            prompt.append("${getString(R.string.miku_name)}: ${openAIPreviousResponse}\n")
         }
-        prompt.append("${userAccount.getName()}: ${text}\n${mikuAccount.getName()}:")
+        prompt.append("${userAccount.getName()}: ${text}\n${getString(R.string.miku_name)}:")
+        Log.d(TAG, prompt.toString())
         val completionRequest = CompletionRequest(
             model = ModelId("text-davinci-003"),
             prompt = prompt.toString(),
@@ -451,12 +454,13 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             stop = listOf("\n")
         )
         val completion: TextCompletion = openAI.completion(completionRequest)
-        val receivedText = completion.choices.first().text.replace(" ", "")
-        openAIPreviousResponse = receivedText
+        val response = completion.choices.first().text.replace(" ", "")
+        Log.d(TAG, "response: $response")
+        openAIPreviousResponse = response
         val receivedMessage = Message.Builder()
             .setUser(mikuAccount)
             .setRight(false)
-            .setText(receivedText)
+            .setText(response)
             .build()
         withContext(Dispatchers.Main) {
             binding.chatView.receive(receivedMessage)
