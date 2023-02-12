@@ -1,6 +1,5 @@
 package comviewaquahp.google.sites.youbimiku
 
-import android.annotation.SuppressLint
 import android.content.Intent
 import android.graphics.BitmapFactory
 import android.net.Uri
@@ -41,6 +40,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     private lateinit var openAI: OpenAI
 
     private var openAIRequestCount = 0
+    private var openAIPreviousResponse = ""
+
     private var initialLayoutComplete = false
     private val job = SupervisorJob()
     private val exceptionHandler: CoroutineExceptionHandler =
@@ -436,15 +437,21 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     }
 
     private suspend fun openAITask(text: String) {
+        val prompt = StringBuilder()
+        if (!openAIPreviousResponse.isEmpty()) {
+            prompt.append("${mikuAccount.getName()}:\n")
+        }
+        prompt.append("${userAccount.getName()}: ${text}\n${mikuAccount.getName()}:")
         val completionRequest = CompletionRequest(
             model = ModelId("text-davinci-003"),
-            prompt = "${userAccount.getName()}: ${text}\n${mikuAccount.getName()}:",
+            prompt = prompt.toString(),
             maxTokens = 256,
             echo = false,
             stop = listOf("\n")
         )
         val completion: TextCompletion = openAI.completion(completionRequest)
         val receivedText = completion.choices.first().text.replace(" ", "")
+        openAIPreviousResponse = receivedText
         val receivedMessage = Message.Builder()
             .setUser(mikuAccount)
             .setRight(false)
