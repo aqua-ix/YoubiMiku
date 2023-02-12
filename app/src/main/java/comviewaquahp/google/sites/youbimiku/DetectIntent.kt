@@ -5,10 +5,11 @@ import android.util.Log
 import com.google.api.gax.core.FixedCredentialsProvider
 import com.google.auth.oauth2.GoogleCredentials
 import com.google.cloud.dialogflow.v2.*
-import java.util.*
+import comviewaquahp.google.sites.youbimiku.config.LanguageConfig
+import comviewaquahp.google.sites.youbimiku.config.getLanguage
 
 class DetectIntent(
-    val context: Context,
+    private val context: Context,
     private val session: String,
 ) {
 

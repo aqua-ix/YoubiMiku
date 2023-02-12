@@ -1,15 +1,20 @@
 @file:Suppress("unused")
 
-package comviewaquahp.google.sites.youbimiku
+package comviewaquahp.google.sites.youbimiku.config
 
 import android.content.Context
 import com.github.bassaer.chatmessageview.view.ChatView
 
+const val XSMALL = 25f
+const val SMALL = 35f
+const val MEDIUM = 45f
+const val LARGE = 55f
+
 enum class FontSizeConfig(val size: Float) {
-    FONT_SIZE_XSMALL(Constants.FONT_SIZE_XSMALL),
-    FONT_SIZE_SMALL(Constants.FONT_SIZE_SMALL),
-    FONT_SIZE_MEDIUM(Constants.FONT_SIZE_MEDIUM),
-    FONT_SIZE_LARGE(Constants.FONT_SIZE_LARGE);
+    FONT_SIZE_XSMALL(XSMALL),
+    FONT_SIZE_SMALL(SMALL),
+    FONT_SIZE_MEDIUM(MEDIUM),
+    FONT_SIZE_LARGE(LARGE);
 
     companion object {
         fun getType(name: String?): FontSizeConfig {

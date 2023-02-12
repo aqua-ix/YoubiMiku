@@ -26,6 +26,7 @@ import com.google.android.gms.ads.admanager.AdManagerAdView
 import com.google.android.gms.ads.interstitial.InterstitialAd
 import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
 import com.google.android.play.core.review.ReviewManagerFactory
+import comviewaquahp.google.sites.youbimiku.config.*
 import comviewaquahp.google.sites.youbimiku.databinding.ActivityMainBinding
 import kotlinx.coroutines.*
 
@@ -169,7 +170,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
     private fun showInAppReviewIfNeeded() {
         val pref = SharedPreferenceManager
-        pref.get(this, Key.LAUNCH_COUNT.name, 0)?.let {
+        pref.get(this, Key.LAUNCH_COUNT.name, 0).let {
             val current = it + 1
             pref.put(this, Key.LAUNCH_COUNT.name, current)
 

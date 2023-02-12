@@ -4,6 +4,8 @@ import android.app.Dialog
 import android.os.Bundle
 import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.DialogFragment
+import comviewaquahp.google.sites.youbimiku.config.Key
+import comviewaquahp.google.sites.youbimiku.config.SharedPreferenceManager
 import comviewaquahp.google.sites.youbimiku.databinding.UserNameDialogBinding
 import java.util.*
 
