@@ -24,6 +24,10 @@ import com.google.android.gms.ads.admanager.AdManagerAdView
 import com.google.android.gms.ads.interstitial.InterstitialAd
 import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
 import com.google.android.play.core.review.ReviewManagerFactory
+import com.google.firebase.ktx.Firebase
+import com.google.firebase.remoteconfig.FirebaseRemoteConfig
+import com.google.firebase.remoteconfig.ktx.remoteConfig
+import com.google.firebase.remoteconfig.ktx.remoteConfigSettings
 import comviewaquahp.google.sites.youbimiku.config.*
 import comviewaquahp.google.sites.youbimiku.databinding.ActivityMainBinding
 import kotlinx.coroutines.*
@@ -59,6 +63,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
         initChatView()
         initBanner()
+        initRemoteConfig()
 
         showInAppReviewIfNeeded()
 
@@ -114,6 +119,14 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                 loadBanner(adSize)
             }
         }
+    }
+
+    private fun initRemoteConfig() {
+        val remoteConfig: FirebaseRemoteConfig = Firebase.remoteConfig
+        val configSettings = remoteConfigSettings {
+            minimumFetchIntervalInSeconds = 3600
+        }
+        remoteConfig.setConfigSettingsAsync(configSettings)
     }
 
     private fun loadBanner(adSize: AdSize) {
