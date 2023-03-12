@@ -10,6 +10,7 @@
     <string name="ad_placeholder">Ads</string>
 
     <string name="message_error">An error has occurred. Please check your network connection.</string>
+    <string name="message_error_openai">Sorry, GPT model is not currently available. The standard model speaks for me.</string>
 
     <string name="setting_user_name">Your Name</string>
     <string name="setting_name_title">How can I call you?</string>

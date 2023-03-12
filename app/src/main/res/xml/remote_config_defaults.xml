@@ -2,7 +2,7 @@
 <defaultsMap>
     <entry>
         <key>max_tokens</key>
-        <value>256</value>
+        <value>0</value>
     </entry>
     <entry>
         <key>ad_display_request_times</key>

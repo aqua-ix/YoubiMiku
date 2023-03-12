@@ -10,6 +10,7 @@
     <string name="ad_placeholder">広告</string>
 
     <string name="message_error">エラーが発生しました。ネットワークに繋がっていないかもしれません。</string>
+    <string name="message_error_openai">申し訳ありません、GPTモデルは現在利用できません。しばらくは標準モデルとの会話をお楽しみください。</string>
 
     <string name="setting_dialog_accept">決定</string>
     <string name="setting_dialog_cancel">キャンセル</string>

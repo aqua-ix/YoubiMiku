@@ -18,7 +18,6 @@ import com.aallam.openai.api.BetaOpenAI
 import com.aallam.openai.api.chat.ChatCompletionRequest
 import com.aallam.openai.api.chat.ChatMessage
 import com.aallam.openai.api.chat.ChatRole
-import com.aallam.openai.api.completion.CompletionRequest
 import com.aallam.openai.api.model.ModelId
 import com.aallam.openai.client.OpenAI
 import com.github.bassaer.chatmessageview.model.Message
@@ -45,6 +44,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     private lateinit var adView: AdManagerAdView
     private lateinit var interstitialAd: InterstitialAd
     private lateinit var openAI: OpenAI
+    private lateinit var remoteConfig: FirebaseRemoteConfig
 
     private var openAIPreviousResponse = ""
 
@@ -131,12 +131,13 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     }
 
     private fun initRemoteConfig() {
-        val remoteConfig: FirebaseRemoteConfig = Firebase.remoteConfig
+        remoteConfig = Firebase.remoteConfig
         val configSettings = remoteConfigSettings {
             minimumFetchIntervalInSeconds = 3600
         }
         remoteConfig.setConfigSettingsAsync(configSettings)
         remoteConfig.setDefaultsAsync(R.xml.remote_config_defaults)
+        remoteConfig.fetchAndActivate()
     }
 
     private fun loadBanner(adSize: AdSize) {
@@ -182,6 +183,17 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     }
 
     private fun showOpenAIGreet(userName: String?) {
+        if (!remoteConfig.getBoolean(RemoteConfigKey.OPENAI_ENABLED)) {
+            val error = Message.Builder()
+                .setUser(mikuAccount)
+                .setRight(false)
+                .setText(getString(R.string.message_error_openai))
+                .build()
+            binding.chatView.receive(error)
+            setAIModel(this, AIModelConfig.DIALOG_FLOW)
+            mikuAccount = getMikuAccount()
+            return
+        }
         val greeting = resources.getString(R.string.user_nice_to_meet_you, userName)
         scope.launch {
             openAITask(greeting)
@@ -426,7 +438,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                 }
         }
 
-        if (count >= OPENAI_REQUEST_COUNT_TO_SHOW_INTERSTITIAL) {
+        if (count >= remoteConfig.getDouble(RemoteConfigKey.AD_DISPLAY_REQUEST_TIMES)) {
             interstitialAd.show(this)
             setOpenAIRequestCount(applicationContext, 0)
         }
@@ -453,8 +465,12 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
     @OptIn(BetaOpenAI::class)
     private suspend fun openAITask(text: String) {
-        val sendText = if(text.length <= 20) text else text.substring(0, 20)
+        val sendText = if (text.length <= 20) text else text.substring(0, 20)
         Log.d(TAG, "sendText: $sendText")
+
+        val configTokens = remoteConfig.getDouble(RemoteConfigKey.MAX_TOKENS).toInt()
+        val maxTokens = if (configTokens == 0) null else configTokens
+
         val chatCompletionRequest = ChatCompletionRequest(
             model = ModelId(Constants.OPENAI_MODEL),
             messages = listOf(
@@ -470,7 +486,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                     role = ChatRole.User,
                     content = sendText
                 )
-            )
+            ),
+            maxTokens = maxTokens
         )
         val completion = openAI.chatCompletion(chatCompletionRequest)
         Log.d(TAG, "completion: $completion")
