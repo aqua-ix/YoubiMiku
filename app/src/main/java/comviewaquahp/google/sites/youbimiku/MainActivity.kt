@@ -163,7 +163,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
     private fun getMikuAccount(): User {
         return if (getAIModel(this) == (AIModelConfig.OPEN_AI.name)) {
-            val face = BitmapFactory.decodeResource(resources, R.drawable.glad)
+            val face = BitmapFactory.decodeResource(resources, R.drawable.normal)
             val name = "${getString(R.string.miku_name)}(GPT)"
             User(2, name, face)
         } else {
