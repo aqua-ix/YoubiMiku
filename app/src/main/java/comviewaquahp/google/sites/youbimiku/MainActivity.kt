@@ -14,6 +14,10 @@ import android.view.ViewGroup
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import com.aallam.openai.api.BetaOpenAI
+import com.aallam.openai.api.chat.ChatCompletionRequest
+import com.aallam.openai.api.chat.ChatMessage
+import com.aallam.openai.api.chat.ChatRole
 import com.aallam.openai.api.completion.CompletionRequest
 import com.aallam.openai.api.model.ModelId
 import com.aallam.openai.client.OpenAI
@@ -71,15 +75,20 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         setup()
 
         val adRequest = AdRequest.Builder().build()
-        InterstitialAd.load(this,BuildConfig.adInterstitialUnitId, adRequest, object : InterstitialAdLoadCallback() {
-            override fun onAdFailedToLoad(adError: LoadAdError) {
-                Log.d(TAG, adError.message)
-            }
-            override fun onAdLoaded(ad: InterstitialAd) {
-                Log.d(TAG, "Ad was loaded.")
-                interstitialAd = ad
-            }
-        })
+        InterstitialAd.load(
+            this,
+            BuildConfig.adInterstitialUnitId,
+            adRequest,
+            object : InterstitialAdLoadCallback() {
+                override fun onAdFailedToLoad(adError: LoadAdError) {
+                    Log.d(TAG, adError.message)
+                }
+
+                override fun onAdLoaded(ad: InterstitialAd) {
+                    Log.d(TAG, "Ad was loaded.")
+                    interstitialAd = ad
+                }
+            })
     }
 
     private val adSize: AdSize
@@ -442,36 +451,44 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         }
     }
 
+    @OptIn(BetaOpenAI::class)
     private suspend fun openAITask(text: String) {
-        val prompt = StringBuilder()
-        if(openAIPreviousResponse.isNotEmpty()) {
-            prompt.append("${getString(R.string.miku_name)}: ${openAIPreviousResponse}\n")
-        }
         val sendText = if(text.length <= 20) text else text.substring(0, 20)
-        prompt.append("${userAccount.getName()}: ${sendText}\n${getString(R.string.miku_name)}:")
-        Log.d(TAG, prompt.toString())
-        val completionRequest = CompletionRequest(
+        Log.d(TAG, "sendText: $sendText")
+        val chatCompletionRequest = ChatCompletionRequest(
             model = ModelId(Constants.OPENAI_MODEL),
-            prompt = prompt.toString(),
-            maxTokens = 256,
-            echo = false,
-            stop = listOf("\n")
+            messages = listOf(
+                ChatMessage(
+                    role = ChatRole.System,
+                    content = getString(R.string.openai_system_prompt, userAccount.getName()),
+                ),
+                ChatMessage(
+                    role = ChatRole.Assistant,
+                    content = openAIPreviousResponse,
+                ),
+                ChatMessage(
+                    role = ChatRole.User,
+                    content = sendText
+                )
+            )
         )
-        val completion = openAI.completion(completionRequest)
+        val completion = openAI.chatCompletion(chatCompletionRequest)
         Log.d(TAG, "completion: $completion")
-        val response = completion.choices.first().text.replace(" ", "")
-        Log.d(TAG, "response: $response")
-        if(response.isEmpty()) {
-            return
-        }
-        openAIPreviousResponse = response
-        val receivedMessage = Message.Builder()
-            .setUser(mikuAccount)
-            .setRight(false)
-            .setText(response)
-            .build()
-        withContext(Dispatchers.Main) {
-            binding.chatView.receive(receivedMessage)
+        completion.choices.first().message?.content.let {
+            val response = it?.replace(" ", "")?.replace("\n", "")
+            Log.d(TAG, "response: $response")
+            if (response == null || response.isEmpty()) {
+                return
+            }
+            openAIPreviousResponse = response
+            val receivedMessage = Message.Builder()
+                .setUser(mikuAccount)
+                .setRight(false)
+                .setText(response)
+                .build()
+            withContext(Dispatchers.Main) {
+                binding.chatView.receive(receivedMessage)
+            }
         }
     }
 

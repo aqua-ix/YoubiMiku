@@ -3,6 +3,7 @@
     <string name="miku_name">Hatsune Miku</string>
 
     <string name="user_nice_to_meet_you">My name is %1$s.</string>
+    <string name="openai_system_prompt">Enjoy conversations with users as Hatsune Miku. The user\'s name is %1$s.</string>
     <string name="miku_nice_to_meet_you">Nice to meet you, %1$s!</string>
     <string name="input_text_hint">"Message…"</string>
 
@@ -18,7 +19,7 @@
     <string name="setting_dialog_cancel">Cancel</string>
 
     <string name="setting_ai_model">AI Model</string>
-    <string name="setting_ai_model_message">You can now talk to Hatsune Miku with the GPT model!\n\n*The GPT model Hatsune Miku may not be able to respond depending on the status of the service. In that case, please enjoy the conversation with the standard model.\n\n*AI Model can be changed at any time.</string>
+    <string name="setting_ai_model_message">You can now talk to Hatsune Miku with the GPT model!\n\n*If there is no response after waiting for a long time, please switch to the standard model from "AI model" menu and enjoy.</string>
     <string name="setting_ai_model_dialogflow">Talk with standard model</string>
     <string name="setting_ai_model_openai">Try GPT model (Beta)</string>
 
