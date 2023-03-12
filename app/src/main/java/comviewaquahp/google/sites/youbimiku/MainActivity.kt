@@ -1,12 +1,10 @@
 package comviewaquahp.google.sites.youbimiku
 
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.text.TextUtils
 import android.util.DisplayMetrics
 import android.util.Log
 import android.view.Menu
@@ -16,22 +14,40 @@ import android.view.ViewGroup
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import com.aallam.openai.api.BetaOpenAI
+import com.aallam.openai.api.chat.ChatCompletionRequest
+import com.aallam.openai.api.chat.ChatMessage
+import com.aallam.openai.api.chat.ChatRole
+import com.aallam.openai.api.model.ModelId
+import com.aallam.openai.client.OpenAI
 import com.github.bassaer.chatmessageview.model.Message
 import com.google.android.gms.ads.*
 import com.google.android.gms.ads.admanager.AdManagerAdRequest
 import com.google.android.gms.ads.admanager.AdManagerAdView
+import com.google.android.gms.ads.interstitial.InterstitialAd
+import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
 import com.google.android.play.core.review.ReviewManagerFactory
-import kotlinx.android.synthetic.main.activity_main.*
+import com.google.firebase.ktx.Firebase
+import com.google.firebase.remoteconfig.FirebaseRemoteConfig
+import com.google.firebase.remoteconfig.ktx.remoteConfig
+import com.google.firebase.remoteconfig.ktx.remoteConfigSettings
+import comviewaquahp.google.sites.youbimiku.config.*
+import comviewaquahp.google.sites.youbimiku.databinding.ActivityMainBinding
 import kotlinx.coroutines.*
-import java.lang.Exception
-import java.util.*
 
 class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     private lateinit var userAccount: User
     private lateinit var mikuAccount: User
 
+    private lateinit var binding: ActivityMainBinding
     private lateinit var detectIntent: DetectIntent
     private lateinit var adView: AdManagerAdView
+    private lateinit var interstitialAd: InterstitialAd
+    private lateinit var openAI: OpenAI
+    private lateinit var remoteConfig: FirebaseRemoteConfig
+
+    private var openAIPreviousResponse = ""
+
     private var initialLayoutComplete = false
     private val job = SupervisorJob()
     private val exceptionHandler: CoroutineExceptionHandler =
@@ -43,15 +59,36 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
     public override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        val view = binding.root
+        setContentView(view)
 
         detectIntent = DetectIntent(this, getDialogFlowSession())
 
         initChatView()
         initBanner()
+        initRemoteConfig()
 
-        showUserNameDialogIfNeeded()
         showInAppReviewIfNeeded()
+
+        openAI = OpenAI(BuildConfig.openAIKey)
+        setup()
+
+        val adRequest = AdRequest.Builder().build()
+        InterstitialAd.load(
+            this,
+            BuildConfig.adInterstitialUnitId,
+            adRequest,
+            object : InterstitialAdLoadCallback() {
+                override fun onAdFailedToLoad(adError: LoadAdError) {
+                    Log.d(TAG, adError.message)
+                }
+
+                override fun onAdLoaded(ad: InterstitialAd) {
+                    Log.d(TAG, "Ad was loaded.")
+                    interstitialAd = ad
+                }
+            })
     }
 
     private val adSize: AdSize
@@ -62,13 +99,13 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
             val density = outMetrics.density
 
-            var adWidthPixels = ad_view_container.width.toFloat()
+            var adWidthPixels = binding.adViewContainer.width.toFloat()
             if (adWidthPixels == 0f) {
                 adWidthPixels = outMetrics.widthPixels.toFloat()
             }
 
             val adWidth = (adWidthPixels / density).toInt()
-            return if(BuildConfig.FLAVOR == "ads") {
+            return if (BuildConfig.FLAVOR == "ads") {
                 AdSize.getCurrentOrientationAnchoredAdaptiveBannerAdSize(this, adWidth)
             } else {
                 AdSize(0, 0)
@@ -82,10 +119,10 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             RequestConfiguration.Builder().build()
         )
 
-        ad_placeholder.layoutParams.height = adSize.getHeightInPixels(this)
+        binding.adPlaceholder.layoutParams.height = adSize.getHeightInPixels(this)
         adView = AdManagerAdView(this)
-        ad_view_container.addView(adView)
-        ad_view_container.viewTreeObserver.addOnGlobalLayoutListener {
+        binding.adViewContainer.addView(adView)
+        binding.adViewContainer.viewTreeObserver.addOnGlobalLayoutListener {
             if (!initialLayoutComplete) {
                 initialLayoutComplete = true
                 loadBanner(adSize)
@@ -93,9 +130,19 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         }
     }
 
+    private fun initRemoteConfig() {
+        remoteConfig = Firebase.remoteConfig
+        val configSettings = remoteConfigSettings {
+            minimumFetchIntervalInSeconds = 3600
+        }
+        remoteConfig.setConfigSettingsAsync(configSettings)
+        remoteConfig.setDefaultsAsync(R.xml.remote_config_defaults)
+        remoteConfig.fetchAndActivate()
+    }
+
     private fun loadBanner(adSize: AdSize) {
         Log.d(TAG, "loadBanner()")
-        adView.adUnitId = BuildConfig.AD_UNIT_ID
+        adView.adUnitId = BuildConfig.adBannerUnitId
         adView.setAdSizes(adSize)
         val adRequest = AdManagerAdRequest.Builder().build()
         adView.loadAd(adRequest)
@@ -103,16 +150,26 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
     private fun initChatView() {
         val size = FontSizeConfig.getSize(getFontSizeType(this))
-        setFontSize(size, chat_view)
+        setFontSize(size, binding.chatView)
 
-        val mikuFace = BitmapFactory.decodeResource(resources, R.drawable.normal)
         userAccount = User(0, null, null)
-        mikuAccount = User(1, getString(R.string.miku_name), mikuFace)
-        val mlp = chat_view.layoutParams as ViewGroup.MarginLayoutParams
+        mikuAccount = getMikuAccount()
+        val mlp = binding.chatView.layoutParams as ViewGroup.MarginLayoutParams
         mlp.topMargin = adSize.getHeightInPixels(this)
-        chat_view.setDateSeparatorFontSize(0F)
-        chat_view.setInputTextHint(getString(R.string.input_text_hint))
-        chat_view.setOnClickSendButtonListener(this)
+        binding.chatView.setDateSeparatorFontSize(0F)
+        binding.chatView.setInputTextHint(getString(R.string.input_text_hint))
+        binding.chatView.setOnClickSendButtonListener(this)
+    }
+
+    private fun getMikuAccount(): User {
+        return if (getAIModel(this) == (AIModelConfig.OPEN_AI.name)) {
+            val face = BitmapFactory.decodeResource(resources, R.drawable.normal)
+            val name = "${getString(R.string.miku_name)}(GPT)"
+            User(2, name, face)
+        } else {
+            val face = BitmapFactory.decodeResource(resources, R.drawable.normal)
+            User(1, getString(R.string.miku_name), face)
+        }
     }
 
     private fun showGreet(userName: String?) {
@@ -122,12 +179,30 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             .setRight(false)
             .setText(greeting)
             .build()
-        chat_view.receive(welcome)
+        binding.chatView.receive(welcome)
+    }
+
+    private fun showOpenAIGreet(userName: String?) {
+        if (!remoteConfig.getBoolean(RemoteConfigKey.OPENAI_ENABLED)) {
+            val error = Message.Builder()
+                .setUser(mikuAccount)
+                .setRight(false)
+                .setText(getString(R.string.message_error_openai))
+                .build()
+            binding.chatView.receive(error)
+            setAIModel(this, AIModelConfig.DIALOG_FLOW)
+            mikuAccount = getMikuAccount()
+            return
+        }
+        val greeting = resources.getString(R.string.user_nice_to_meet_you, userName)
+        scope.launch {
+            openAITask(greeting)
+        }
     }
 
     private fun showInAppReviewIfNeeded() {
         val pref = SharedPreferenceManager
-        pref.get(this, Key.LAUNCH_COUNT.name, 0)?.let {
+        pref.get(this, Key.LAUNCH_COUNT.name, 0).let {
             val current = it + 1
             pref.put(this, Key.LAUNCH_COUNT.name, current)
 
@@ -139,13 +214,21 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         }
     }
 
-    private fun showUserNameDialogIfNeeded() {
+    private fun setup() {
         if (getUserName(this).equals("")) {
             showUserNameDialog(false)
         } else {
             userAccount.setName(getUserName(this).toString())
-            showGreet(getUserName(this))
+            when (getAIModel(this)) {
+                AIModelConfig.OPEN_AI.name -> showOpenAIGreet(getUserName(this))
+                else -> showGreet(getUserName(this))
+            }
         }
+
+        if (getAIModel(this).equals("")) {
+            showAIModelDialog(false)
+        }
+
     }
 
     private fun showUserNameDialog(cancelable: Boolean = true) {
@@ -154,7 +237,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         args.putBoolean(Constants.ARGUMENT_CANCELABLE, cancelable)
         dialog.arguments = args
         dialog.setDialogListener(this)
-        dialog.show(fragmentManager, UserNameDialogFragment::class.java.name)
+        dialog.show(supportFragmentManager, UserNameDialogFragment::class.java.name)
     }
 
     override fun doPositiveClick() {
@@ -162,12 +245,29 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         showGreet(getUserName(this))
     }
 
+    private fun showAIModelDialog(cancelable: Boolean = true) {
+        AlertDialog.Builder(this)
+            .setTitle(getString(R.string.setting_ai_model))
+            .setMessage(getString(R.string.setting_ai_model_message))
+            .setPositiveButton(getString(R.string.setting_ai_model_openai)) { _, _ ->
+                setAIModel(this, AIModelConfig.OPEN_AI)
+                mikuAccount = getMikuAccount()
+                interstitialAd.show(this)
+            }
+            .setNegativeButton(getString(R.string.setting_ai_model_dialogflow)) { _, _ ->
+                setAIModel(this, AIModelConfig.DIALOG_FLOW)
+                mikuAccount = getMikuAccount()
+            }
+            .setCancelable(cancelable)
+            .show()
+    }
+
     private fun showFontSizeDialog() {
         val index = FontSizeConfig.getType(getFontSizeType(this)).ordinal
         AlertDialog.Builder(this)
             .setTitle(getString(R.string.setting_font_size))
             .setSingleChoiceItems(R.array.font_size_config, index) { _, which ->
-                setFontSize(FontSizeConfig.getSize(which), chat_view)
+                setFontSize(FontSizeConfig.getSize(which), binding.chatView)
                 SharedPreferenceManager.put(
                     this,
                     Key.FONT_SIZE.name,
@@ -255,23 +355,15 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         }
     }
 
-    private fun openShareIntent() {
+    private fun openOfficialAccountIntent() {
         try {
-            val intent = Intent(Intent.ACTION_SEND).apply {
-                val text = buildString {
-                    append(getString(R.string.setting_share_app_text))
-                    append("\n")
-                    append(getString(R.string.setting_share_app_url))
-                }
-                putExtra(Intent.EXTRA_TEXT, text)
-                type = "text/plain"
-            }
-            val shareIntent = Intent.createChooser(intent, null)
-            startActivity(shareIntent)
+            val uri = Uri.parse("https://twitter.com/youbimiku")
+            val intent = Intent(Intent.ACTION_VIEW, uri)
+            startActivity(intent)
         } catch (e: Exception) {
             Toast.makeText(
                 this,
-                getString(R.string.setting_share_app_error),
+                getString(R.string.official_account_error),
                 Toast.LENGTH_SHORT
             )
                 .show()
@@ -290,6 +382,10 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                 showUserNameDialog()
                 true
             }
+            R.id.setting_ai_model -> {
+                showAIModelDialog()
+                true
+            }
             R.id.setting_font_size -> {
                 showFontSizeDialog()
                 true
@@ -298,16 +394,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                 showLanguageDialog()
                 true
             }
-            R.id.setting_submit_review -> {
-                openPlayStore()
-                true
-            }
-            R.id.setting_send_feedback -> {
-                openMailer()
-                true
-            }
-            R.id.setting_share_app -> {
-                openShareIntent()
+            R.id.setting_official_account -> {
+                openOfficialAccountIntent()
                 true
             }
             else -> super.onOptionsItemSelected(item)
@@ -315,28 +403,44 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     }
 
     override fun onClick(v: View) {
-        if (chat_view.inputText.isEmpty()) {
+        if (binding.chatView.inputText.isEmpty()) {
             return
         }
         val send = Message.Builder()
             .setUser(userAccount)
             .setRight(true)
-            .setText(chat_view.inputText)
+            .setText(binding.chatView.inputText)
             .hideIcon(true)
             .build()
-        sendRequest(chat_view.inputText)
-        chat_view.send(send)
-        chat_view.inputText = ""
+        sendRequest(binding.chatView.inputText)
+        binding.chatView.send(send)
+        binding.chatView.inputText = ""
     }
 
     private fun sendRequest(text: String) {
-        Log.d(TAG, text)
-        if (TextUtils.isEmpty(text)) {
-            Log.e(TAG, Constants.LOGGER_EMPTY_QUERY)
+        Log.d(TAG, "request: $text")
+        if (text.isBlank()) {
+            Log.e(TAG, "Text should not be empty.")
             return
         }
-        scope.launch {
-            dialogFlowTask(text)
+
+        var count = getOpenAIRequestCount(applicationContext)
+
+        when (getAIModel(this)) {
+            AIModelConfig.OPEN_AI.name ->
+                scope.launch {
+                    setOpenAIRequestCount(applicationContext, ++count)
+                    openAITask(text)
+                }
+            else ->
+                scope.launch {
+                    dialogFlowTask(text)
+                }
+        }
+
+        if (count >= remoteConfig.getDouble(RemoteConfigKey.AD_DISPLAY_REQUEST_TIMES)) {
+            interstitialAd.show(this)
+            setOpenAIRequestCount(applicationContext, 0)
         }
     }
 
@@ -348,13 +452,67 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
     private suspend fun dialogFlowTask(text: String) {
         val response = detectIntent.send(text)
+        Log.d(TAG, "response: $response")
         val receivedMessage = Message.Builder()
             .setUser(mikuAccount)
             .setRight(false)
             .setText(response)
             .build()
         withContext(Dispatchers.Main) {
-            chat_view.receive(receivedMessage)
+            binding.chatView.receive(receivedMessage)
+        }
+    }
+
+    @OptIn(BetaOpenAI::class)
+    private suspend fun openAITask(text: String) {
+        val sendText = if (text.length <= 20) text else text.substring(0, 20)
+        Log.d(TAG, "sendText: $sendText")
+
+        val configTokens = remoteConfig.getDouble(RemoteConfigKey.MAX_TOKENS).toInt()
+        val maxTokens = if (configTokens == 0) null else configTokens
+
+        val chatCompletionRequest = ChatCompletionRequest(
+            model = ModelId(Constants.OPENAI_MODEL),
+            messages = listOf(
+                ChatMessage(
+                    role = ChatRole.System,
+                    content = getString(R.string.openai_system_prompt, userAccount.getName()),
+                ),
+                ChatMessage(
+                    role = ChatRole.Assistant,
+                    content = openAIPreviousResponse,
+                ),
+                ChatMessage(
+                    role = ChatRole.User,
+                    content = sendText
+                )
+            ),
+            maxTokens = maxTokens
+        )
+        val completion = openAI.chatCompletion(chatCompletionRequest)
+        Log.d(TAG, "completion: $completion")
+        val choice = completion.choices.first()
+        choice.message?.content.let {
+            val response = it?.replace("^$|\n", "")
+            Log.d(TAG, "response: $response")
+            val result = if (choice.finishReason == "length") {
+                "$response…"
+            } else {
+                response
+            }
+            Log.d(TAG, "result: $result")
+            if (result == null || result.isEmpty()) {
+                return
+            }
+            openAIPreviousResponse = result
+            val receivedMessage = Message.Builder()
+                .setUser(mikuAccount)
+                .setRight(false)
+                .setText(result)
+                .build()
+            withContext(Dispatchers.Main) {
+                binding.chatView.receive(receivedMessage)
+            }
         }
     }
 

@@ -2,12 +2,15 @@
     <string name="app_name">YoubiMiku</string>
     <string name="miku_name">Hatsune Miku</string>
 
+    <string name="user_nice_to_meet_you">My name is %1$s.</string>
+    <string name="openai_system_prompt">Enjoy conversations with users as Hatsune Miku. The user\'s name is %1$s.</string>
     <string name="miku_nice_to_meet_you">Nice to meet you, %1$s!</string>
     <string name="input_text_hint">"Message…"</string>
 
     <string name="ad_placeholder">Ads</string>
 
     <string name="message_error">An error has occurred. Please check your network connection.</string>
+    <string name="message_error_openai">Sorry, GPT model is not currently available. The standard model speaks for me.</string>
 
     <string name="setting_user_name">Your Name</string>
     <string name="setting_name_title">How can I call you?</string>
@@ -15,6 +18,11 @@
     <string name="setting_user_name_empty">Please enter your username</string>
     <string name="setting_dialog_accept">OK</string>
     <string name="setting_dialog_cancel">Cancel</string>
+
+    <string name="setting_ai_model">AI Model</string>
+    <string name="setting_ai_model_message">You can now talk to Hatsune Miku with the GPT model!\n\n*If there is no response after waiting for a long time, please switch to the standard model from "AI model" menu and enjoy.</string>
+    <string name="setting_ai_model_dialogflow">Talk with standard model</string>
+    <string name="setting_ai_model_openai">Try GPT model (Beta)</string>
 
     <string name="setting_font_size">Font Size</string>
     <string name="setting_font_xsmall">Extra Small</string>
@@ -26,12 +34,8 @@
     <string name="setting_language_jp">Japanese</string>
     <string name="setting_language_en">English</string>
 
-    <string name="setting_share_app">Share App</string>
-    <string name="setting_share_app_text">YoubiMiku @youbimiku</string>
-    <string name="setting_share_app_url" translatable="false">
-        https://play.google.com/store/apps/details?id=comviewaquahp.google.sites.youbimiku
-    </string>
-    <string name="setting_share_app_error">App not found</string>
+    <string name="official_account">Twitter Account</string>
+    <string name="official_account_error">App not found</string>
 
     <string name="setting_submit_review">Submit Review</string>
     <string name="setting_submit_review_error">Please Install Play Store</string>

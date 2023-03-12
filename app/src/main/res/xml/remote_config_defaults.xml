@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<defaultsMap>
+    <entry>
+        <key>max_tokens</key>
+        <value>0</value>
+    </entry>
+    <entry>
+        <key>ad_display_request_times</key>
+        <value>30</value>
+    </entry>
+    <entry>
+        <key>openai_enabled</key>
+        <value>true</value>
+    </entry>
+</defaultsMap>

@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <array name="ai_model_config">
+        <item>@string/setting_ai_model_dialogflow</item>
+        <item>@string/setting_ai_model_openai</item>
+    </array>
+
     <array name="font_size_config">
         <item>@string/setting_font_xsmall</item>
         <item>@string/setting_font_small</item>

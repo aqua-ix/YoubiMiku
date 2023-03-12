@@ -1,4 +1,4 @@
-package comviewaquahp.google.sites.youbimiku
+package comviewaquahp.google.sites.youbimiku.config
 
 import android.content.Context
 import android.content.SharedPreferences
@@ -20,7 +20,7 @@ open class SharedPreferenceManager {
             instance(context).edit().putString(key, value).apply()
         }
 
-        fun get(context: Context, key: String, defValue: Int): Int? {
+        fun get(context: Context, key: String, defValue: Int): Int {
             return instance(context).getInt(key, defValue)
         }
 
@@ -35,4 +35,6 @@ enum class Key {
     FONT_SIZE,
     LANGUAGE,
     LAUNCH_COUNT,
+    AI_MODEL,
+    OPENAI_REQUEST_COUNT
 }

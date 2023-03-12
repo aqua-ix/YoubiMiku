@@ -2,19 +2,27 @@
     <string name="app_name">ユビキタ初音ミク</string>
     <string name="miku_name">初音ミク</string>
 
-    <string name="miku_nice_to_meet_you">%1$sさん!よろしくお願いします。</string>
+    <string name="user_nice_to_meet_you">私は%1$sです。</string>
+    <string name="openai_system_prompt">初音ミクとしてユーザーとの会話を楽しんでください。ユーザーの名前は%1$sです。</string>
+    <string name="miku_nice_to_meet_you">%1$sさん！よろしくお願いします。</string>
     <string name="input_text_hint">話しかける</string>
 
     <string name="ad_placeholder">広告</string>
 
     <string name="message_error">エラーが発生しました。ネットワークに繋がっていないかもしれません。</string>
+    <string name="message_error_openai">申し訳ありません、GPTモデルは現在利用できません。しばらくは標準モデルとの会話をお楽しみください。</string>
 
-    <string name="setting_dialog_accept">決定</string>！
+    <string name="setting_dialog_accept">決定</string>
     <string name="setting_dialog_cancel">キャンセル</string>
     <string name="setting_user_name">あなたの名前</string>
     <string name="setting_name_title">お名前を教えてください</string>
     <string name="setting_name_hint">名前を入力</string>
     <string name="setting_user_name_empty">ユーザー名を入力してください。</string>
+
+    <string name="setting_ai_model">AIモデルの選択</string>
+    <string name="setting_ai_model_message">より高性能なAI（GPT-3.5）を搭載した初音ミクさんとの会話が可能になりました！\n\n※長時間待っても返答がない場合は、「AIモデルの選択」から標準モデルに切り替えてお楽しみください。</string>
+    <string name="setting_ai_model_dialogflow">標準モデルと話す</string>
+    <string name="setting_ai_model_openai">GPTモデルと話してみる(ベータ版)</string>
 
     <string name="setting_font_size">文字サイズ</string>
     <string name="setting_font_xsmall">極小</string>
@@ -22,13 +30,12 @@
     <string name="setting_font_medium">中</string>
     <string name="setting_font_large">大</string>
 
-    <string name="setting_language">言語</string>
+    <string name="setting_language">標準モデルの言語</string>
     <string name="setting_language_jp">日本語</string>
     <string name="setting_language_en">英語</string>
 
-    <string name="setting_share_app">シェアする</string>
-    <string name="setting_share_app_text">ユビキタ初音ミク @youbimiku</string>
-    <string name="setting_share_app_error">アプリが見つかりません</string>
+    <string name="official_account">公式アカウント</string>
+    <string name="official_account_error">アプリが見つかりません</string>
 
     <string name="setting_submit_review">応援する</string>
     <string name="setting_submit_review_error">PlayStoreが見つかりません</string>

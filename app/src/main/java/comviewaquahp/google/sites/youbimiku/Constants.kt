@@ -2,15 +2,15 @@ package comviewaquahp.google.sites.youbimiku
 
 class Constants {
     companion object {
-        const val LOGGER_EMPTY_QUERY="Query should not be empty"
         const val ARGUMENT_CANCELABLE="cancelable"
+        const val OPENAI_MODEL = "gpt-3.5-turbo"
+    }
+}
 
-        const val FONT_SIZE_XSMALL = 25f
-        const val FONT_SIZE_SMALL = 35f
-        const val FONT_SIZE_MEDIUM = 45f
-        const val FONT_SIZE_LARGE = 55f
-
-        const val LANGUAGE_JP = "jp"
-        const val LANGUAGE_EN = "en"
+class RemoteConfigKey {
+    companion object {
+        const val MAX_TOKENS = "max_tokens"
+        const val AD_DISPLAY_REQUEST_TIMES = "ad_display_request_times"
+        const val OPENAI_ENABLED = "openai_enabled"
     }
 }

@@ -1,13 +1,16 @@
 @file:Suppress("unused")
 
-package comviewaquahp.google.sites.youbimiku
+package comviewaquahp.google.sites.youbimiku.config
 
 import android.content.Context
 import java.util.*
 
+const val JP = "jp"
+const val EN = "en"
+
 enum class LanguageConfig(val language: String) {
-    LANGUAGE_JP(Constants.LANGUAGE_JP),
-    LANGUAGE_EN(Constants.LANGUAGE_EN);
+    LANGUAGE_JP(JP),
+    LANGUAGE_EN(EN);
 
     companion object {
         fun getType(name: String?): LanguageConfig {
