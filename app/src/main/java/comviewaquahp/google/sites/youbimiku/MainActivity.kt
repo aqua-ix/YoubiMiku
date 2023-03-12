@@ -491,17 +491,24 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         )
         val completion = openAI.chatCompletion(chatCompletionRequest)
         Log.d(TAG, "completion: $completion")
-        completion.choices.first().message?.content.let {
-            val response = it?.replace(" ", "")?.replace("\n", "")
+        val choice = completion.choices.first()
+        choice.message?.content.let {
+            val response = it?.replace("^$|\n", "")
             Log.d(TAG, "response: $response")
-            if (response == null || response.isEmpty()) {
+            val result = if (choice.finishReason == "length") {
+                "$response…"
+            } else {
+                response
+            }
+            Log.d(TAG, "result: $result")
+            if (result == null || result.isEmpty()) {
                 return
             }
-            openAIPreviousResponse = response
+            openAIPreviousResponse = result
             val receivedMessage = Message.Builder()
                 .setUser(mikuAccount)
                 .setRight(false)
-                .setText(response)
+                .setText(result)
                 .build()
             withContext(Dispatchers.Main) {
                 binding.chatView.receive(receivedMessage)
