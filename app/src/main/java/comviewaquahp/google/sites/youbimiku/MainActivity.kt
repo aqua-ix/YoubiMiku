@@ -127,6 +127,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             minimumFetchIntervalInSeconds = 3600
         }
         remoteConfig.setConfigSettingsAsync(configSettings)
+        remoteConfig.setDefaultsAsync(R.xml.remote_config_defaults)
     }
 
     private fun loadBanner(adSize: AdSize) {
