@@ -1,6 +1,6 @@
 @file:Suppress("unused")
 
-package comviewaquahp.google.sites.youbimiku.config
+package com.aqua_ix.youbimiku.config
 
 import android.content.Context
 import java.util.*
@@ -33,7 +33,7 @@ enum class LanguageConfig(val language: String) {
             return getType(name).language
         }
 
-        fun getDefault(): LanguageConfig{
+        fun getDefault(): LanguageConfig {
             return if (Locale.getDefault().language.equals("ja")) {
                 LANGUAGE_JP
             } else {
@@ -46,8 +46,8 @@ enum class LanguageConfig(val language: String) {
 
 fun getLanguage(context: Context): String? {
     return SharedPreferenceManager.get(
-            context,
-            Key.LANGUAGE.name,
-            LanguageConfig.getDefault().name
+        context,
+        Key.LANGUAGE.name,
+        LanguageConfig.getDefault().name
     )
 }

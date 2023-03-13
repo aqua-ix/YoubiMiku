@@ -1,4 +1,4 @@
-package comviewaquahp.google.sites.youbimiku;
+package com.aqua_ix.youbimiku;
 
 import android.content.Context;
 import androidx.test.InstrumentationRegistry;

@@ -1,12 +1,13 @@
-package comviewaquahp.google.sites.youbimiku
+package com.aqua_ix.youbimiku
 
 import android.content.Context
 import android.util.Log
 import com.google.api.gax.core.FixedCredentialsProvider
 import com.google.auth.oauth2.GoogleCredentials
 import com.google.cloud.dialogflow.v2.*
-import comviewaquahp.google.sites.youbimiku.config.LanguageConfig
-import comviewaquahp.google.sites.youbimiku.config.getLanguage
+import com.aqua_ix.youbimiku.config.LanguageConfig
+import com.aqua_ix.youbimiku.config.getLanguage
+import com.aqua_ix.youbimiku.R
 
 class DetectIntent(
     private val context: Context,

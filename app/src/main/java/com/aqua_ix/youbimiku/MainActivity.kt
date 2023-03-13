@@ -1,4 +1,4 @@
-package comviewaquahp.google.sites.youbimiku
+package com.aqua_ix.youbimiku
 
 import android.content.Intent
 import android.graphics.BitmapFactory
@@ -20,6 +20,7 @@ import com.aallam.openai.api.chat.ChatMessage
 import com.aallam.openai.api.chat.ChatRole
 import com.aallam.openai.api.model.ModelId
 import com.aallam.openai.client.OpenAI
+import com.aqua_ix.youbimiku.config.*
 import com.github.bassaer.chatmessageview.model.Message
 import com.google.android.gms.ads.*
 import com.google.android.gms.ads.admanager.AdManagerAdRequest
@@ -31,8 +32,9 @@ import com.google.firebase.ktx.Firebase
 import com.google.firebase.remoteconfig.FirebaseRemoteConfig
 import com.google.firebase.remoteconfig.ktx.remoteConfig
 import com.google.firebase.remoteconfig.ktx.remoteConfigSettings
-import comviewaquahp.google.sites.youbimiku.config.*
-import comviewaquahp.google.sites.youbimiku.databinding.ActivityMainBinding
+import com.aqua_ix.youbimiku.R
+import com.aqua_ix.youbimiku.config.*
+import com.aqua_ix.youbimiku.databinding.ActivityMainBinding
 import kotlinx.coroutines.*
 
 class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {

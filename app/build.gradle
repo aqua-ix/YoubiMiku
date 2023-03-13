@@ -44,7 +44,7 @@ android {
     buildFeatures {
         viewBinding true
     }
-    namespace 'comviewaquahp.google.sites.youbimiku'
+    namespace 'com.aqua_ix.youbimiku'
     lint {
         abortOnError false
         checkReleaseBuilds false
