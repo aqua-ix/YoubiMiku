@@ -9,6 +9,7 @@ class Constants {
 
 class RemoteConfigKey {
     companion object {
+        const val MAX_USER_TEXT_LENGTH = "max_user_text_length"
         const val MAX_TOKENS = "max_tokens"
         const val AD_DISPLAY_REQUEST_TIMES = "ad_display_request_times"
         const val OPENAI_ENABLED = "openai_enabled"
