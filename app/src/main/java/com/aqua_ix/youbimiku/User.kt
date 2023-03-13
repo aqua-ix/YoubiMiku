@@ -1,10 +1,10 @@
-package comviewaquahp.google.sites.youbimiku
+package com.aqua_ix.youbimiku
 
 import android.content.Context
 import android.graphics.Bitmap
 import com.github.bassaer.chatmessageview.model.IChatUser
-import comviewaquahp.google.sites.youbimiku.config.Key
-import comviewaquahp.google.sites.youbimiku.config.SharedPreferenceManager
+import com.aqua_ix.youbimiku.config.Key
+import com.aqua_ix.youbimiku.config.SharedPreferenceManager
 
 class User internal constructor(private val id: Int, private var name: String?, private var icon: Bitmap?) : IChatUser {
 

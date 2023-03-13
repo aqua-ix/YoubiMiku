@@ -1,6 +1,6 @@
 @file:Suppress("unused")
 
-package comviewaquahp.google.sites.youbimiku.config
+package com.aqua_ix.youbimiku.config
 
 import android.content.Context
 import com.github.bassaer.chatmessageview.view.ChatView
@@ -48,8 +48,8 @@ fun setFontSize(size: Float, view: ChatView) {
 
 fun getFontSizeType(context: Context): String? {
     return SharedPreferenceManager.get(
-            context,
-            Key.FONT_SIZE.name,
-            FontSizeConfig.FONT_SIZE_MEDIUM.name
+        context,
+        Key.FONT_SIZE.name,
+        FontSizeConfig.FONT_SIZE_MEDIUM.name
     )
 }

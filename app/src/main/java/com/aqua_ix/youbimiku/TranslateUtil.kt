@@ -1,5 +1,6 @@
-package comviewaquahp.google.sites.youbimiku
+package com.aqua_ix.youbimiku
 
+import com.aqua_ix.youbimiku.R
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.net.HttpURLConnection

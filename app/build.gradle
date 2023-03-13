@@ -12,8 +12,8 @@ android {
         applicationId "comviewaquahp.google.sites.youbimiku"
         minSdkVersion 21
         targetSdkVersion 33
-        versionCode 20
-        versionName "7.0"
+        versionCode 21
+        versionName "7.1"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
     packagingOptions {
@@ -44,7 +44,7 @@ android {
     buildFeatures {
         viewBinding true
     }
-    namespace 'comviewaquahp.google.sites.youbimiku'
+    namespace 'com.aqua_ix.youbimiku'
     lint {
         abortOnError false
         checkReleaseBuilds false

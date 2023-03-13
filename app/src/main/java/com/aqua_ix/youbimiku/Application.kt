@@ -1,4 +1,4 @@
-package comviewaquahp.google.sites.youbimiku
+package com.aqua_ix.youbimiku
 
 class Application : android.app.Application() {
 

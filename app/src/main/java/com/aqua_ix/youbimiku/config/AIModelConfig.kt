@@ -1,4 +1,4 @@
-package comviewaquahp.google.sites.youbimiku.config
+package com.aqua_ix.youbimiku.config
 
 import android.content.Context
 
