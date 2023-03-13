@@ -254,7 +254,9 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             .setPositiveButton(getString(R.string.setting_ai_model_openai)) { _, _ ->
                 setAIModel(this, AIModelConfig.OPEN_AI)
                 mikuAccount = getMikuAccount()
-                interstitialAd.show(this)
+                if (::interstitialAd.isInitialized) {
+                    interstitialAd.show(this)
+                }
             }
             .setNegativeButton(getString(R.string.setting_ai_model_dialogflow)) { _, _ ->
                 setAIModel(this, AIModelConfig.DIALOG_FLOW)
@@ -441,6 +443,9 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         }
 
         if (count >= remoteConfig.getDouble(RemoteConfigKey.AD_DISPLAY_REQUEST_TIMES)) {
+            if (::interstitialAd.isInitialized) {
+                interstitialAd.show(this)
+            }
             interstitialAd.show(this)
             setOpenAIRequestCount(applicationContext, 0)
         }
