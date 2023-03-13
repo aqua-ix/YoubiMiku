@@ -2,8 +2,6 @@ package com.aqua_ix.youbimiku.config
 
 import android.content.Context
 
-const val OPENAI_REQUEST_COUNT_TO_SHOW_INTERSTITIAL = 30
-
 fun getOpenAIRequestCount(context: Context): Int {
     return SharedPreferenceManager.get(
         context,
