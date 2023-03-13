@@ -32,8 +32,6 @@ import com.google.firebase.ktx.Firebase
 import com.google.firebase.remoteconfig.FirebaseRemoteConfig
 import com.google.firebase.remoteconfig.ktx.remoteConfig
 import com.google.firebase.remoteconfig.ktx.remoteConfigSettings
-import com.aqua_ix.youbimiku.R
-import com.aqua_ix.youbimiku.config.*
 import com.aqua_ix.youbimiku.databinding.ActivityMainBinding
 import kotlinx.coroutines.*
 
@@ -254,7 +252,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             .setPositiveButton(getString(R.string.setting_ai_model_openai)) { _, _ ->
                 setAIModel(this, AIModelConfig.OPEN_AI)
                 mikuAccount = getMikuAccount()
-                if (::interstitialAd.isInitialized) {
+                if (BuildConfig.FLAVOR == "ads" && ::interstitialAd.isInitialized) {
                     interstitialAd.show(this)
                 }
             }
@@ -443,7 +441,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         }
 
         if (count >= remoteConfig.getDouble(RemoteConfigKey.AD_DISPLAY_REQUEST_TIMES)) {
-            if (::interstitialAd.isInitialized) {
+            if (BuildConfig.FLAVOR == "ads" && ::interstitialAd.isInitialized) {
                 interstitialAd.show(this)
             }
             interstitialAd.show(this)
