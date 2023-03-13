@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <defaultsMap>
     <entry>
+        <key>max_user_text_length</key>
+        <value>140</value>
+    </entry>
+    <entry>
         <key>max_tokens</key>
         <value>0</value>
     </entry>

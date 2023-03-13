@@ -470,7 +470,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
     @OptIn(BetaOpenAI::class)
     private suspend fun openAITask(text: String) {
-        val sendText = if (text.length <= 20) text else text.substring(0, 20)
+        val maxLength = remoteConfig.getDouble(RemoteConfigKey.MAX_USER_TEXT_LENGTH).toInt()
+        val sendText = if (text.length <= maxLength) text else text.substring(0, maxLength)
         Log.d(TAG, "sendText: $sendText")
 
         val configTokens = remoteConfig.getDouble(RemoteConfigKey.MAX_TOKENS).toInt()
