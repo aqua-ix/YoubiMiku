@@ -444,7 +444,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             if (BuildConfig.FLAVOR == "ads" && ::interstitialAd.isInitialized) {
                 interstitialAd.show(this)
             }
-            interstitialAd.show(this)
             setOpenAIRequestCount(applicationContext, 0)
         }
     }
