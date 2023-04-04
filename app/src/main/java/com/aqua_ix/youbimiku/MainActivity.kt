@@ -45,6 +45,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     private lateinit var interstitialAd: InterstitialAd
     private lateinit var openAI: OpenAI
     private lateinit var remoteConfig: FirebaseRemoteConfig
+    private lateinit var navMenu: Menu
 
     private var openAIPreviousResponse = ""
 
@@ -192,7 +193,9 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                 .build()
             binding.chatView.receive(error)
             setAIModel(this, AIModelConfig.DIALOG_FLOW)
-            mikuAccount = getMikuAccount()
+            if (::navMenu.isInitialized) {
+                navMenu.findItem(R.id.setting_language).isVisible = true
+            }
             return
         }
         val greeting = resources.getString(R.string.user_nice_to_meet_you, userName)
@@ -256,10 +259,16 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                 if (BuildConfig.FLAVOR == "ads" && ::interstitialAd.isInitialized) {
                     interstitialAd.show(this)
                 }
+                if (::navMenu.isInitialized) {
+                    navMenu.findItem(R.id.setting_language).isVisible = false
+                }
             }
             .setNegativeButton(getString(R.string.setting_ai_model_dialogflow)) { _, _ ->
                 setAIModel(this, AIModelConfig.DIALOG_FLOW)
                 mikuAccount = getMikuAccount()
+                if (::navMenu.isInitialized) {
+                    navMenu.findItem(R.id.setting_language).isVisible = true
+                }
             }
             .setCancelable(cancelable)
             .show()
@@ -376,6 +385,10 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         val inflater = menuInflater
         inflater.inflate(R.menu.menu, menu)
+        getAIModel(this)?.let {
+            menu.findItem(R.id.setting_language).isVisible = it == AIModelConfig.DIALOG_FLOW.name
+        }
+        navMenu = menu
         return true
     }
 

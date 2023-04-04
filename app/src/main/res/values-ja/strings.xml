@@ -3,7 +3,7 @@
     <string name="miku_name">初音ミク</string>
 
     <string name="user_nice_to_meet_you">私は%1$sです。</string>
-    <string name="openai_system_prompt">初音ミクとしてユーザーとの会話を楽しんでください。ユーザーの名前は「%1$s」です。</string>
+    <string name="openai_system_prompt">初音ミクとして会話を楽しんでください。ユーザーの名前は「%1$s」です。</string>
     <string name="miku_nice_to_meet_you">%1$sさん！よろしくお願いします。</string>
     <string name="input_text_hint">話しかける</string>
 
@@ -20,7 +20,7 @@
     <string name="setting_user_name_empty">ユーザー名を入力してください。</string>
 
     <string name="setting_ai_model">AIモデルの選択</string>
-    <string name="setting_ai_model_message">より高性能なAI（GPT-3.5）を搭載した初音ミクさんとの会話が可能になりました！\n\n※長時間待っても返答がない場合は、「AIモデルの選択」から標準モデルに切り替えてお楽しみください。</string>
+    <string name="setting_ai_model_message">高性能なAI（GPT-3.5）を搭載した初音ミクさんと会話できます！\n\n※長時間待っても返答がない場合は、「AIモデルの選択」から標準モデルに切り替えてお楽しみください。</string>
     <string name="setting_ai_model_dialogflow">標準モデルと話す</string>
     <string name="setting_ai_model_openai">GPTモデルと話してみる(ベータ版)</string>
 
@@ -30,7 +30,7 @@
     <string name="setting_font_medium">中</string>
     <string name="setting_font_large">大</string>
 
-    <string name="setting_language">標準モデルの言語</string>
+    <string name="setting_language">言語を選択</string>
     <string name="setting_language_jp">日本語</string>
     <string name="setting_language_en">英語</string>
 

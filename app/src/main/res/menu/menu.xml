@@ -4,10 +4,10 @@
         android:title="@string/setting_user_name"/>
     <item android:id="@+id/setting_ai_model"
         android:title="@string/setting_ai_model"/>
-    <item android:id="@+id/setting_language"
-        android:title="@string/setting_language"/>
     <item android:id="@+id/setting_font_size"
         android:title="@string/setting_font_size"/>
+    <item android:id="@+id/setting_language"
+        android:title="@string/setting_language"/>
     <item android:id="@+id/setting_official_account"
         android:title="@string/official_account"/>
 </menu>
