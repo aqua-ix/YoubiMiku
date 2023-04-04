@@ -159,6 +159,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         binding.chatView.setDateSeparatorFontSize(0F)
         binding.chatView.setInputTextHint(getString(R.string.input_text_hint))
         binding.chatView.setOnClickSendButtonListener(this)
+        binding.chatView.setMessageMaxWidth(640)
     }
 
     private fun getMikuAccount(): User {
