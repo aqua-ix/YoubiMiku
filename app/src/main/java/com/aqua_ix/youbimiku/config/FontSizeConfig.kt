@@ -5,10 +5,10 @@ package com.aqua_ix.youbimiku.config
 import android.content.Context
 import com.github.bassaer.chatmessageview.view.ChatView
 
-const val XSMALL = 25f
-const val SMALL = 35f
-const val MEDIUM = 45f
-const val LARGE = 55f
+const val XSMALL = 24f
+const val SMALL = 32f
+const val MEDIUM = 44f
+const val LARGE = 52f
 
 enum class FontSizeConfig(val size: Float) {
     FONT_SIZE_XSMALL(XSMALL),
