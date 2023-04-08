@@ -8,25 +8,16 @@
     tools:context="com.aqua_ix.youbimiku.MainActivity"
     tools:ignore="MergeRootFrame">
 
-
     <com.github.bassaer.chatmessageview.view.ChatView
         android:id="@+id/chat_view"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"/>
+        android:layout_height="match_parent" />
 
     <FrameLayout
         android:id="@+id/ad_view_container"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_centerInParent="true"
-        android:layout_alignParentTop="true">
-        <TextView
-            android:id="@+id/ad_placeholder"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:background="@color/blueGray300"
-            android:gravity="center"
-            android:text="@string/ad_placeholder"/>
-    </FrameLayout>
+        android:layout_alignParentTop="true"
+        android:layout_centerInParent="true" />
 
 </RelativeLayout>
