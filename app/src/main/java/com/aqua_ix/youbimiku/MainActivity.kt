@@ -3,14 +3,11 @@ package com.aqua_ix.youbimiku
 import android.content.Intent
 import android.graphics.BitmapFactory
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
-import android.util.DisplayMetrics
 import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
-import android.view.ViewGroup
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -22,11 +19,6 @@ import com.aallam.openai.api.model.ModelId
 import com.aallam.openai.client.OpenAI
 import com.aqua_ix.youbimiku.config.*
 import com.github.bassaer.chatmessageview.model.Message
-import com.google.android.gms.ads.*
-import com.google.android.gms.ads.admanager.AdManagerAdRequest
-import com.google.android.gms.ads.admanager.AdManagerAdView
-import com.google.android.gms.ads.interstitial.InterstitialAd
-import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
 import com.google.android.play.core.review.ReviewManagerFactory
 import com.google.firebase.ktx.Firebase
 import com.google.firebase.remoteconfig.FirebaseRemoteConfig
@@ -41,15 +33,12 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
     private lateinit var binding: ActivityMainBinding
     private lateinit var detectIntent: DetectIntent
-    private lateinit var adView: AdManagerAdView
-    private lateinit var interstitialAd: InterstitialAd
     private lateinit var openAI: OpenAI
     private lateinit var remoteConfig: FirebaseRemoteConfig
     private lateinit var navMenu: Menu
 
     private var openAIPreviousResponse = ""
 
-    private var initialLayoutComplete = false
     private val job = SupervisorJob()
     private val exceptionHandler: CoroutineExceptionHandler =
         CoroutineExceptionHandler { value, throwable ->
@@ -67,68 +56,11 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         detectIntent = DetectIntent(this, getDialogFlowSession())
 
         initChatView()
-        initBanner()
         initRemoteConfig()
-
         showInAppReviewIfNeeded()
 
         openAI = OpenAI(BuildConfig.openAIKey)
         setup()
-
-        val adRequest = AdRequest.Builder().build()
-        InterstitialAd.load(
-            this,
-            BuildConfig.adInterstitialUnitId,
-            adRequest,
-            object : InterstitialAdLoadCallback() {
-                override fun onAdFailedToLoad(adError: LoadAdError) {
-                    Log.d(TAG, adError.message)
-                }
-
-                override fun onAdLoaded(ad: InterstitialAd) {
-                    Log.d(TAG, "Ad was loaded.")
-                    interstitialAd = ad
-                }
-            })
-    }
-
-    private val adSize: AdSize
-        get() {
-            val display = windowManager.defaultDisplay
-            val outMetrics = DisplayMetrics()
-            display.getMetrics(outMetrics)
-
-            val density = outMetrics.density
-
-            var adWidthPixels = binding.adViewContainer.width.toFloat()
-            if (adWidthPixels == 0f) {
-                adWidthPixels = outMetrics.widthPixels.toFloat()
-            }
-
-            val adWidth = (adWidthPixels / density).toInt()
-            return if (BuildConfig.FLAVOR == "ads") {
-                AdSize.getCurrentOrientationAnchoredAdaptiveBannerAdSize(this, adWidth)
-            } else {
-                AdSize(0, 0)
-            }
-        }
-
-
-    private fun initBanner() {
-        MobileAds.initialize(this) {}
-        MobileAds.setRequestConfiguration(
-            RequestConfiguration.Builder().build()
-        )
-
-        binding.adPlaceholder.layoutParams.height = adSize.getHeightInPixels(this)
-        adView = AdManagerAdView(this)
-        binding.adViewContainer.addView(adView)
-        binding.adViewContainer.viewTreeObserver.addOnGlobalLayoutListener {
-            if (!initialLayoutComplete) {
-                initialLayoutComplete = true
-                loadBanner(adSize)
-            }
-        }
     }
 
     private fun initRemoteConfig() {
@@ -141,22 +73,12 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         remoteConfig.fetchAndActivate()
     }
 
-    private fun loadBanner(adSize: AdSize) {
-        Log.d(TAG, "loadBanner()")
-        adView.adUnitId = BuildConfig.adBannerUnitId
-        adView.setAdSizes(adSize)
-        val adRequest = AdManagerAdRequest.Builder().build()
-        adView.loadAd(adRequest)
-    }
-
     private fun initChatView() {
         val size = FontSizeConfig.getSize(getFontSizeType(this))
         setFontSize(size, binding.chatView)
 
         userAccount = User(0, null, null)
         mikuAccount = getMikuAccount()
-        val mlp = binding.chatView.layoutParams as ViewGroup.MarginLayoutParams
-        mlp.topMargin = adSize.getHeightInPixels(this)
         binding.chatView.setDateSeparatorFontSize(0F)
         binding.chatView.setInputTextHint(getString(R.string.input_text_hint))
         binding.chatView.setOnClickSendButtonListener(this)
@@ -256,9 +178,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             .setPositiveButton(getString(R.string.setting_ai_model_openai)) { _, _ ->
                 setAIModel(this, AIModelConfig.OPEN_AI)
                 mikuAccount = getMikuAccount()
-                if (BuildConfig.FLAVOR == "ads" && ::interstitialAd.isInitialized) {
-                    interstitialAd.show(this)
-                }
                 if (::navMenu.isInitialized) {
                     navMenu.findItem(R.id.setting_language).isVisible = false
                 }
@@ -306,21 +225,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             .show()
     }
 
-    private fun openPlayStore() {
-        try {
-            val uri = Uri.parse("market://details?id=$packageName")
-            val intent = Intent(Intent.ACTION_VIEW, uri)
-            startActivity(intent)
-        } catch (e: Exception) {
-            Toast.makeText(
-                this,
-                getString(R.string.setting_submit_review_error),
-                Toast.LENGTH_SHORT
-            )
-                .show()
-        }
-    }
-
     private fun openInAppReview() {
         try {
             val reviewManager = ReviewManagerFactory.create(this)
@@ -330,32 +234,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                     }
             }
         } catch (e: Exception) {
-        }
-    }
-
-    private fun openMailer() {
-        try {
-            val intent = Intent(Intent.ACTION_SENDTO).apply {
-                data = Uri.parse("mailto:")
-                putExtra(Intent.EXTRA_EMAIL, arrayOf(getString(R.string.feedback_email_address)))
-                putExtra(Intent.EXTRA_SUBJECT, getString(R.string.feedback_email_subject))
-                val text = buildString {
-                    append("App Version: " + getVersionName())
-                    append("\nModel Name: " + Build.MODEL)
-                    append("\nOS Version: " + Build.VERSION.SDK_INT)
-                    append("\n=================\n")
-                    append(getString(R.string.feedback_email_inquiry))
-                }
-                putExtra(Intent.EXTRA_TEXT, text)
-            }
-            startActivity(intent)
-        } catch (e: Exception) {
-            Toast.makeText(
-                this,
-                getString(R.string.setting_send_feedback_error),
-                Toast.LENGTH_SHORT
-            )
-                .show()
         }
     }
 
@@ -455,9 +333,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         }
 
         if (count >= remoteConfig.getDouble(RemoteConfigKey.AD_DISPLAY_REQUEST_TIMES)) {
-            if (BuildConfig.FLAVOR == "ads" && ::interstitialAd.isInitialized) {
-                interstitialAd.show(this)
-            }
             setOpenAIRequestCount(applicationContext, 0)
         }
     }
@@ -536,17 +411,14 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     }
 
     public override fun onPause() {
-        adView.pause()
         super.onPause()
     }
 
     public override fun onResume() {
         super.onResume()
-        adView.resume()
     }
 
     public override fun onDestroy() {
-        adView.destroy()
         detectIntent.resetContexts()
         scope.coroutineContext.cancel()
         super.onDestroy()
