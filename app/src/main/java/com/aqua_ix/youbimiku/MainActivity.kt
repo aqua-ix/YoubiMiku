@@ -306,21 +306,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             .show()
     }
 
-    private fun openPlayStore() {
-        try {
-            val uri = Uri.parse("market://details?id=$packageName")
-            val intent = Intent(Intent.ACTION_VIEW, uri)
-            startActivity(intent)
-        } catch (e: Exception) {
-            Toast.makeText(
-                this,
-                getString(R.string.setting_submit_review_error),
-                Toast.LENGTH_SHORT
-            )
-                .show()
-        }
-    }
-
     private fun openInAppReview() {
         try {
             val reviewManager = ReviewManagerFactory.create(this)
@@ -330,32 +315,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                     }
             }
         } catch (e: Exception) {
-        }
-    }
-
-    private fun openMailer() {
-        try {
-            val intent = Intent(Intent.ACTION_SENDTO).apply {
-                data = Uri.parse("mailto:")
-                putExtra(Intent.EXTRA_EMAIL, arrayOf(getString(R.string.feedback_email_address)))
-                putExtra(Intent.EXTRA_SUBJECT, getString(R.string.feedback_email_subject))
-                val text = buildString {
-                    append("App Version: " + getVersionName())
-                    append("\nModel Name: " + Build.MODEL)
-                    append("\nOS Version: " + Build.VERSION.SDK_INT)
-                    append("\n=================\n")
-                    append(getString(R.string.feedback_email_inquiry))
-                }
-                putExtra(Intent.EXTRA_TEXT, text)
-            }
-            startActivity(intent)
-        } catch (e: Exception) {
-            Toast.makeText(
-                this,
-                getString(R.string.setting_send_feedback_error),
-                Toast.LENGTH_SHORT
-            )
-                .show()
         }
     }
 
