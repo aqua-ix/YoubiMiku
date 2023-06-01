@@ -59,6 +59,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
         initChatView()
         initBanner()
+        initIntrerstitial()
         initRemoteConfig()
         showInAppReviewIfNeeded()
 
@@ -94,8 +95,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         }
         ImobileSdkAd.registerSpotInline(
             this,
-            IMOBILE_BANNER_PID,
-            IMOBILE_BANNER_MID,
+            IMOBILE_PID,
+            IMOBILE_MID,
             IMOBILE_BANNER_SID
         )
         ImobileSdkAd.start(IMOBILE_BANNER_SID)
@@ -114,6 +115,11 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             val mlp = binding.chatView.layoutParams as ViewGroup.MarginLayoutParams
             mlp.topMargin = imobileAdLayout.height
         }
+    }
+
+    private fun initIntrerstitial() {
+        ImobileSdkAd.registerSpotFullScreen(this, IMOBILE_PID, IMOBILE_MID, IMOBILE_INTERSTITIAL_SID)
+        ImobileSdkAd.start(IMOBILE_INTERSTITIAL_SID)
     }
 
     private fun getMikuAccount(): User {
@@ -364,6 +370,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         }
 
         if (count >= remoteConfig.getDouble(RemoteConfigKey.AD_DISPLAY_REQUEST_TIMES)) {
+            ImobileSdkAd.showAd(this, IMOBILE_INTERSTITIAL_SID)
             setOpenAIRequestCount(applicationContext, 0)
         }
     }
@@ -442,16 +449,19 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     }
 
     public override fun onPause() {
+        ImobileSdkAd.stop(IMOBILE_BANNER_SID)
         super.onPause()
     }
 
     public override fun onResume() {
+        ImobileSdkAd.start(IMOBILE_BANNER_SID)
         super.onResume()
     }
 
     public override fun onDestroy() {
         detectIntent.resetContexts()
         scope.coroutineContext.cancel()
+        ImobileSdkAd.activityDestroy()
         super.onDestroy()
     }
 
