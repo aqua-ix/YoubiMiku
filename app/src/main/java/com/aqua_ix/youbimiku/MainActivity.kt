@@ -109,7 +109,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             )
         imobileAdLayoutParam.gravity = Gravity.TOP or Gravity.CENTER
         addContentView(imobileAdLayout, imobileAdLayoutParam)
-        ImobileSdkAd.showAd(this, IMOBILE_BANNER_SID, imobileAdLayout)
+        ImobileSdkAd.showAd(this, IMOBILE_BANNER_SID, imobileAdLayout, true)
 
         imobileAdLayout.viewTreeObserver.addOnGlobalLayoutListener {
             val mlp = binding.chatView.layoutParams as ViewGroup.MarginLayoutParams
