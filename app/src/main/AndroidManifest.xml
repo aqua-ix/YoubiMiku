@@ -20,6 +20,9 @@
         <meta-data
             android:name="i-mobile_Testing"
             android:value="${imobile_Testing}" />
+        <meta-data
+            android:name="i-mobile_DebugLogging"
+            android:value="${imobile_Testing}" />
 
         <activity
             android:name=".MainActivity"

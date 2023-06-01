@@ -5,9 +5,8 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
-import android.view.Menu
-import android.view.MenuItem
-import android.view.View
+import android.view.*
+import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -17,15 +16,18 @@ import com.aallam.openai.api.chat.ChatMessage
 import com.aallam.openai.api.chat.ChatRole
 import com.aallam.openai.api.model.ModelId
 import com.aallam.openai.client.OpenAI
+import com.aqua_ix.youbimiku.BuildConfig.*
 import com.aqua_ix.youbimiku.config.*
+import com.aqua_ix.youbimiku.databinding.ActivityMainBinding
 import com.github.bassaer.chatmessageview.model.Message
 import com.google.android.play.core.review.ReviewManagerFactory
 import com.google.firebase.ktx.Firebase
 import com.google.firebase.remoteconfig.FirebaseRemoteConfig
 import com.google.firebase.remoteconfig.ktx.remoteConfig
 import com.google.firebase.remoteconfig.ktx.remoteConfigSettings
-import com.aqua_ix.youbimiku.databinding.ActivityMainBinding
+import jp.co.imobile.sdkads.android.ImobileSdkAd
 import kotlinx.coroutines.*
+
 
 class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     private lateinit var userAccount: User
@@ -56,10 +58,11 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         detectIntent = DetectIntent(this, getDialogFlowSession())
 
         initChatView()
+        initBanner()
         initRemoteConfig()
         showInAppReviewIfNeeded()
 
-        openAI = OpenAI(BuildConfig.OPENAI_API_KEY)
+        openAI = OpenAI(OPENAI_API_KEY)
         setup()
     }
 
@@ -83,6 +86,34 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         binding.chatView.setInputTextHint(getString(R.string.input_text_hint))
         binding.chatView.setOnClickSendButtonListener(this)
         binding.chatView.setMessageMaxWidth(640)
+    }
+
+    private fun initBanner() {
+        if (FLAVOR == "noAds") {
+            return
+        }
+        ImobileSdkAd.registerSpotInline(
+            this,
+            IMOBILE_BANNER_PID,
+            IMOBILE_BANNER_MID,
+            IMOBILE_BANNER_SID
+        )
+        ImobileSdkAd.start(IMOBILE_BANNER_SID)
+
+        val imobileAdLayout = FrameLayout(this)
+        val imobileAdLayoutParam: FrameLayout.LayoutParams =
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT
+            )
+        imobileAdLayoutParam.gravity = Gravity.TOP or Gravity.CENTER
+        addContentView(imobileAdLayout, imobileAdLayoutParam)
+        ImobileSdkAd.showAd(this, IMOBILE_BANNER_SID, imobileAdLayout)
+
+        imobileAdLayout.viewTreeObserver.addOnGlobalLayoutListener {
+            val mlp = binding.chatView.layoutParams as ViewGroup.MarginLayoutParams
+            mlp.topMargin = imobileAdLayout.height
+        }
     }
 
     private fun getMikuAccount(): User {
