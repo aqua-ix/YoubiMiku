@@ -1,6 +1,5 @@
 package com.aqua_ix.youbimiku
 
-import com.aqua_ix.youbimiku.R
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.net.HttpURLConnection
@@ -10,7 +9,7 @@ class TranslateUtil {
     companion object {
         fun translateEnToJa(text: String): String {
             try {
-                val url = URL("${BuildConfig.translateEndPoint}?text=$text&target=ja")
+                val url = URL("${BuildConfig.TRANSLATE_END_POINT}?text=$text&target=ja")
                 val urlConnection = url.openConnection() as HttpURLConnection
                 urlConnection.requestMethod = "GET"
                 urlConnection.connect()
@@ -29,7 +28,7 @@ class TranslateUtil {
 
         fun translateJaToEn(text: String): String {
             try {
-                val url = URL("${BuildConfig.translateEndPoint}?text=$text&target=en")
+                val url = URL("${BuildConfig.TRANSLATE_END_POINT}?text=$text&target=en")
                 val urlConnection = url.openConnection() as HttpURLConnection
                 urlConnection.requestMethod = "GET"
                 urlConnection.connect()

@@ -59,7 +59,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         initRemoteConfig()
         showInAppReviewIfNeeded()
 
-        openAI = OpenAI(BuildConfig.openAIKey)
+        openAI = OpenAI(BuildConfig.OPENAI_API_KEY)
         setup()
     }
 
