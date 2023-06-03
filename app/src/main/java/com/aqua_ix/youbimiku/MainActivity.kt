@@ -25,7 +25,9 @@ import com.google.firebase.ktx.Firebase
 import com.google.firebase.remoteconfig.FirebaseRemoteConfig
 import com.google.firebase.remoteconfig.ktx.remoteConfig
 import com.google.firebase.remoteconfig.ktx.remoteConfigSettings
+import jp.co.imobile.sdkads.android.FailNotificationReason
 import jp.co.imobile.sdkads.android.ImobileSdkAd
+import jp.co.imobile.sdkads.android.ImobileSdkAdListener
 import kotlinx.coroutines.*
 
 
@@ -46,8 +48,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         CoroutineExceptionHandler { value, throwable ->
             Log.e(TAG, throwable.message.toString())
         }
-    private val scope =
-        CoroutineScope(Dispatchers.Default + job + exceptionHandler) // exceptionHandlerを渡す
+    private val scope = CoroutineScope(Dispatchers.Default + job + exceptionHandler)
+    var openAITaskJob: Job? = null
 
     public override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -59,7 +61,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
         initChatView()
         initBanner()
-        initIntrerstitial()
+        initInterstitial()
         initRemoteConfig()
         showInAppReviewIfNeeded()
 
@@ -101,23 +103,37 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         )
         ImobileSdkAd.start(IMOBILE_BANNER_SID)
 
-        val imobileAdLayout = FrameLayout(this)
-        val imobileAdLayoutParam: FrameLayout.LayoutParams =
+        val imobileBannerLayout = FrameLayout(this)
+        val imobileBannerLayoutParam: FrameLayout.LayoutParams =
             FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.WRAP_CONTENT,
                 FrameLayout.LayoutParams.WRAP_CONTENT
             )
-        imobileAdLayoutParam.gravity = Gravity.TOP or Gravity.CENTER
-        addContentView(imobileAdLayout, imobileAdLayoutParam)
-        ImobileSdkAd.showAd(this, IMOBILE_BANNER_SID, imobileAdLayout, true)
+        imobileBannerLayoutParam.gravity = Gravity.TOP or Gravity.CENTER
+        imobileBannerLayout.visibility = View.INVISIBLE
+        addContentView(imobileBannerLayout, imobileBannerLayoutParam)
+        ImobileSdkAd.showAd(this, IMOBILE_BANNER_SID, imobileBannerLayout, true)
 
-        imobileAdLayout.viewTreeObserver.addOnGlobalLayoutListener {
-            val mlp = binding.chatView.layoutParams as ViewGroup.MarginLayoutParams
-            mlp.topMargin = imobileAdLayout.height
-        }
+        val mlp = binding.chatView.layoutParams as ViewGroup.MarginLayoutParams
+
+        ImobileSdkAd.setImobileSdkAdListener(IMOBILE_BANNER_SID, object : ImobileSdkAdListener() {
+            override fun onAdShowCompleted() {
+                Log.d(TAG, "ImobileSdkAd($IMOBILE_BANNER_SID) onAdReadyCompleted")
+                imobileBannerLayout.visibility = View.VISIBLE
+                mlp.topMargin = imobileBannerLayout.height
+            }
+            override fun onFailed(reason: FailNotificationReason) {
+                Log.d(TAG, "ImobileSdkAd($IMOBILE_BANNER_SID) onFailed: $reason")
+                imobileBannerLayout.visibility = View.INVISIBLE
+                mlp.topMargin = 0
+            }
+        })
     }
 
-    private fun initIntrerstitial() {
+    private fun initInterstitial() {
+        if (FLAVOR == "noAds") {
+            return
+        }
         ImobileSdkAd.registerSpotFullScreen(this, IMOBILE_PID, IMOBILE_MID, IMOBILE_INTERSTITIAL_SID)
         ImobileSdkAd.start(IMOBILE_INTERSTITIAL_SID)
     }
@@ -360,8 +376,13 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         when (getAIModel(this)) {
             AIModelConfig.OPEN_AI.name ->
                 scope.launch {
+                    if(openAITaskJob?.isActive == true) {
+                        return@launch
+                    }
+                    openAITaskJob = launch {
+                        openAITask(text)
+                    }
                     setOpenAIRequestCount(applicationContext, ++count)
-                    openAITask(text)
                 }
             else ->
                 scope.launch {
