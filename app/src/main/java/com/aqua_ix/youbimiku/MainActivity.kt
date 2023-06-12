@@ -5,9 +5,8 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
-import android.view.Menu
-import android.view.MenuItem
-import android.view.View
+import android.view.*
+import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -17,15 +16,20 @@ import com.aallam.openai.api.chat.ChatMessage
 import com.aallam.openai.api.chat.ChatRole
 import com.aallam.openai.api.model.ModelId
 import com.aallam.openai.client.OpenAI
+import com.aqua_ix.youbimiku.BuildConfig.*
 import com.aqua_ix.youbimiku.config.*
+import com.aqua_ix.youbimiku.databinding.ActivityMainBinding
 import com.github.bassaer.chatmessageview.model.Message
 import com.google.android.play.core.review.ReviewManagerFactory
 import com.google.firebase.ktx.Firebase
 import com.google.firebase.remoteconfig.FirebaseRemoteConfig
 import com.google.firebase.remoteconfig.ktx.remoteConfig
 import com.google.firebase.remoteconfig.ktx.remoteConfigSettings
-import com.aqua_ix.youbimiku.databinding.ActivityMainBinding
+import jp.co.imobile.sdkads.android.FailNotificationReason
+import jp.co.imobile.sdkads.android.ImobileSdkAd
+import jp.co.imobile.sdkads.android.ImobileSdkAdListener
 import kotlinx.coroutines.*
+
 
 class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     private lateinit var userAccount: User
@@ -44,8 +48,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         CoroutineExceptionHandler { value, throwable ->
             Log.e(TAG, throwable.message.toString())
         }
-    private val scope =
-        CoroutineScope(Dispatchers.Default + job + exceptionHandler) // exceptionHandlerを渡す
+    private val scope = CoroutineScope(Dispatchers.Default + job + exceptionHandler)
+    var openAITaskJob: Job? = null
 
     public override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -56,10 +60,12 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         detectIntent = DetectIntent(this, getDialogFlowSession())
 
         initChatView()
+        initBanner()
+        initInterstitial()
         initRemoteConfig()
         showInAppReviewIfNeeded()
 
-        openAI = OpenAI(BuildConfig.openAIKey)
+        openAI = OpenAI(OPENAI_API_KEY)
         setup()
     }
 
@@ -83,6 +89,53 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         binding.chatView.setInputTextHint(getString(R.string.input_text_hint))
         binding.chatView.setOnClickSendButtonListener(this)
         binding.chatView.setMessageMaxWidth(640)
+    }
+
+    private fun initBanner() {
+        if (FLAVOR == "noAds") {
+            return
+        }
+        ImobileSdkAd.registerSpotInline(
+            this,
+            IMOBILE_PID,
+            IMOBILE_MID,
+            IMOBILE_BANNER_SID
+        )
+        ImobileSdkAd.start(IMOBILE_BANNER_SID)
+
+        val imobileBannerLayout = FrameLayout(this)
+        val imobileBannerLayoutParam: FrameLayout.LayoutParams =
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT
+            )
+        imobileBannerLayoutParam.gravity = Gravity.TOP or Gravity.CENTER
+        imobileBannerLayout.visibility = View.INVISIBLE
+        addContentView(imobileBannerLayout, imobileBannerLayoutParam)
+        ImobileSdkAd.showAd(this, IMOBILE_BANNER_SID, imobileBannerLayout, true)
+
+        val mlp = binding.chatView.layoutParams as ViewGroup.MarginLayoutParams
+
+        ImobileSdkAd.setImobileSdkAdListener(IMOBILE_BANNER_SID, object : ImobileSdkAdListener() {
+            override fun onAdShowCompleted() {
+                Log.d(TAG, "ImobileSdkAd($IMOBILE_BANNER_SID) onAdReadyCompleted")
+                imobileBannerLayout.visibility = View.VISIBLE
+                mlp.topMargin = imobileBannerLayout.height
+            }
+            override fun onFailed(reason: FailNotificationReason) {
+                Log.d(TAG, "ImobileSdkAd($IMOBILE_BANNER_SID) onFailed: $reason")
+                imobileBannerLayout.visibility = View.INVISIBLE
+                mlp.topMargin = 0
+            }
+        })
+    }
+
+    private fun initInterstitial() {
+        if (FLAVOR == "noAds") {
+            return
+        }
+        ImobileSdkAd.registerSpotFullScreen(this, IMOBILE_PID, IMOBILE_MID, IMOBILE_INTERSTITIAL_SID)
+        ImobileSdkAd.start(IMOBILE_INTERSTITIAL_SID)
     }
 
     private fun getMikuAccount(): User {
@@ -323,8 +376,13 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         when (getAIModel(this)) {
             AIModelConfig.OPEN_AI.name ->
                 scope.launch {
+                    if(openAITaskJob?.isActive == true) {
+                        return@launch
+                    }
+                    openAITaskJob = launch {
+                        openAITask(text)
+                    }
                     setOpenAIRequestCount(applicationContext, ++count)
-                    openAITask(text)
                 }
             else ->
                 scope.launch {
@@ -333,6 +391,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         }
 
         if (count >= remoteConfig.getDouble(RemoteConfigKey.AD_DISPLAY_REQUEST_TIMES)) {
+            ImobileSdkAd.showAd(this, IMOBILE_INTERSTITIAL_SID)
             setOpenAIRequestCount(applicationContext, 0)
         }
     }
@@ -411,16 +470,19 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     }
 
     public override fun onPause() {
+        ImobileSdkAd.stop(IMOBILE_BANNER_SID)
         super.onPause()
     }
 
     public override fun onResume() {
+        ImobileSdkAd.start(IMOBILE_BANNER_SID)
         super.onResume()
     }
 
     public override fun onDestroy() {
         detectIntent.resetContexts()
         scope.coroutineContext.cancel()
+        ImobileSdkAd.activityDestroy()
         super.onDestroy()
     }
 

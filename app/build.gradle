@@ -12,8 +12,8 @@ android {
         applicationId "comviewaquahp.google.sites.youbimiku"
         minSdkVersion 21
         targetSdkVersion 33
-        versionCode 25
-        versionName "7.5"
+        versionCode 27
+        versionName "7.7"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
     packagingOptions {
@@ -24,10 +24,12 @@ android {
     buildTypes {
         debug {
             minifyEnabled false
+            manifestPlaceholders = [ imobile_Testing: "true" ]
         }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            manifestPlaceholders = [ imobile_Testing: "false" ]
         }
     }
     productFlavors {
@@ -83,6 +85,9 @@ dependencies {
     implementation platform('com.google.firebase:firebase-bom:31.2.2')
     implementation 'com.google.firebase:firebase-config-ktx'
     implementation 'com.google.firebase:firebase-analytics-ktx'
+
+    implementation 'com.google.android.gms:play-services-ads-identifier:18.0.1'
+    implementation files('libs/imobileSdkAds.jar')
 }
 
 secrets {
