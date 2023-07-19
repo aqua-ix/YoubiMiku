@@ -16,6 +16,7 @@ import com.aallam.openai.api.chat.ChatMessage
 import com.aallam.openai.api.chat.ChatRole
 import com.aallam.openai.api.model.ModelId
 import com.aallam.openai.client.OpenAI
+import com.aallam.openai.client.OpenAIConfig
 import com.aqua_ix.youbimiku.BuildConfig.*
 import com.aqua_ix.youbimiku.config.*
 import com.aqua_ix.youbimiku.databinding.ActivityMainBinding
@@ -65,7 +66,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         initRemoteConfig()
         showInAppReviewIfNeeded()
 
-        openAI = OpenAI(OPENAI_API_KEY)
+        val openAIConfig = OpenAIConfig(token = OPENAI_API_KEY, organization = OPENAI_ORG_ID)
+        openAI = OpenAI(openAIConfig)
         setup()
     }
 
