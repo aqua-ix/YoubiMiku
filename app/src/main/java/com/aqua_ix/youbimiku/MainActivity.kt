@@ -22,6 +22,10 @@ import com.aqua_ix.youbimiku.config.*
 import com.aqua_ix.youbimiku.databinding.ActivityMainBinding
 import com.github.bassaer.chatmessageview.model.Message
 import com.google.android.play.core.review.ReviewManagerFactory
+import com.google.firebase.database.DataSnapshot
+import com.google.firebase.database.DatabaseError
+import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.database.ValueEventListener
 import com.google.firebase.ktx.Firebase
 import com.google.firebase.remoteconfig.FirebaseRemoteConfig
 import com.google.firebase.remoteconfig.ktx.remoteConfig
@@ -40,6 +44,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     private lateinit var detectIntent: DetectIntent
     private lateinit var openAI: OpenAI
     private lateinit var remoteConfig: FirebaseRemoteConfig
+    private lateinit var database: FirebaseDatabase
     private lateinit var navMenu: Menu
 
     private var openAIPreviousResponse = ""
@@ -64,11 +69,11 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         initBanner()
         initInterstitial()
         initRemoteConfig()
+        initDatabase()
         showInAppReviewIfNeeded()
 
-        val openAIConfig = OpenAIConfig(token = OPENAI_API_KEY, organization = OPENAI_ORG_ID)
-        openAI = OpenAI(openAIConfig)
-        setup()
+        setupOpenAI()
+        setupChat()
     }
 
     private fun initRemoteConfig() {
@@ -79,6 +84,24 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         remoteConfig.setConfigSettingsAsync(configSettings)
         remoteConfig.setDefaultsAsync(R.xml.remote_config_defaults)
         remoteConfig.fetchAndActivate()
+    }
+
+    private fun initDatabase() {
+        database = FirebaseDatabase.getInstance()
+    }
+
+    private fun onOpenAIError() {
+        val error = Message.Builder()
+            .setUser(mikuAccount)
+            .setRight(false)
+            .setText(getString(R.string.message_error_openai))
+            .build()
+        binding.chatView.receive(error)
+        mikuAccount.setName(getString(R.string.miku_name))
+        setAIModel(this, AIModelConfig.DIALOG_FLOW)
+        if (::navMenu.isInitialized) {
+            navMenu.findItem(R.id.setting_language).isVisible = true
+        }
     }
 
     private fun initChatView() {
@@ -124,6 +147,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                 imobileBannerLayout.visibility = View.VISIBLE
                 mlp.topMargin = imobileBannerLayout.height
             }
+
             override fun onFailed(reason: FailNotificationReason) {
                 Log.d(TAG, "ImobileSdkAd($IMOBILE_BANNER_SID) onFailed: $reason")
                 imobileBannerLayout.visibility = View.INVISIBLE
@@ -136,7 +160,12 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         if (FLAVOR == "noAds") {
             return
         }
-        ImobileSdkAd.registerSpotFullScreen(this, IMOBILE_PID, IMOBILE_MID, IMOBILE_INTERSTITIAL_SID)
+        ImobileSdkAd.registerSpotFullScreen(
+            this,
+            IMOBILE_PID,
+            IMOBILE_MID,
+            IMOBILE_INTERSTITIAL_SID
+        )
         ImobileSdkAd.start(IMOBILE_INTERSTITIAL_SID)
     }
 
@@ -163,16 +192,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
     private fun showOpenAIGreet(userName: String?) {
         if (!remoteConfig.getBoolean(RemoteConfigKey.OPENAI_ENABLED)) {
-            val error = Message.Builder()
-                .setUser(mikuAccount)
-                .setRight(false)
-                .setText(getString(R.string.message_error_openai))
-                .build()
-            binding.chatView.receive(error)
-            setAIModel(this, AIModelConfig.DIALOG_FLOW)
-            if (::navMenu.isInitialized) {
-                navMenu.findItem(R.id.setting_language).isVisible = true
-            }
+            Log.e("MainActivity", "OpenAI is disabled by remote config.")
+            onOpenAIError()
             return
         }
         val greeting = resources.getString(R.string.user_nice_to_meet_you, userName)
@@ -195,7 +216,31 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         }
     }
 
-    private fun setup() {
+    private fun setupOpenAI() {
+        val reference = database.getReference("secrets/openai")
+
+        reference.addValueEventListener(object : ValueEventListener {
+            override fun onDataChange(dataSnapshot: DataSnapshot) {
+                val apiKey = dataSnapshot.child("apiKey").getValue(String::class.java)
+                val orgId = dataSnapshot.child("orgId").getValue(String::class.java)
+
+                apiKey?.let {
+                    val config = OpenAIConfig(token = it, organization = orgId)
+                    openAI = OpenAI(config)
+                } ?: run {
+                    Log.e("MainActivity", "apiKey is null.")
+                    onOpenAIError()
+                }
+            }
+
+            override fun onCancelled(databaseError: DatabaseError) {
+                Log.e("MainActivity", "Database error: ${databaseError.message}")
+                onOpenAIError()
+            }
+        })
+    }
+
+    private fun setupChat() {
         if (getUserName(this).equals("")) {
             showUserNameDialog(false)
         } else {
@@ -209,7 +254,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         if (getAIModel(this).equals("")) {
             showAIModelDialog(false)
         }
-
     }
 
     private fun showUserNameDialog(cancelable: Boolean = true) {
@@ -331,22 +375,27 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                 showUserNameDialog()
                 true
             }
+
             R.id.setting_ai_model -> {
                 showAIModelDialog()
                 true
             }
+
             R.id.setting_font_size -> {
                 showFontSizeDialog()
                 true
             }
+
             R.id.setting_language -> {
                 showLanguageDialog()
                 true
             }
+
             R.id.setting_official_account -> {
                 openOfficialAccountIntent()
                 true
             }
+
             else -> super.onOptionsItemSelected(item)
         }
     }
@@ -378,7 +427,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         when (getAIModel(this)) {
             AIModelConfig.OPEN_AI.name ->
                 scope.launch {
-                    if(openAITaskJob?.isActive == true) {
+                    if (openAITaskJob?.isActive == true) {
                         return@launch
                     }
                     openAITaskJob = launch {
@@ -386,6 +435,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                     }
                     setOpenAIRequestCount(applicationContext, ++count)
                 }
+
             else ->
                 scope.launch {
                     dialogFlowTask(text)
