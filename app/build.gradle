@@ -12,8 +12,8 @@ android {
         applicationId "comviewaquahp.google.sites.youbimiku"
         minSdkVersion 21
         targetSdkVersion 33
-        versionCode 28
-        versionName "7.8"
+        versionCode 29
+        versionName "7.9"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
     packagingOptions {
@@ -58,6 +58,7 @@ android {
 dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlinVersion"
     implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation 'com.google.firebase:firebase-database-ktx:20.3.0'
     androidTestImplementation('androidx.test.espresso:espresso-core:3.1.0', {
         exclude group: 'com.android.support', module: 'support-annotations'
     })
