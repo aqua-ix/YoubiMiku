@@ -2,7 +2,6 @@
     <string name="app_name">ユビキタ初音ミク</string>
     <string name="miku_name">初音ミク</string>
 
-    <string name="user_nice_to_meet_you">私は%1$sです。</string>
     <string name="openai_system_prompt">初音ミクとして会話を楽しんでください。ユーザーの名前は「%1$s」です。</string>
     <string name="miku_nice_to_meet_you">%1$sさん！よろしくお願いします。</string>
     <string name="input_text_hint">話しかける</string>

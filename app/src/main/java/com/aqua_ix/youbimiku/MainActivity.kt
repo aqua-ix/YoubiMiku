@@ -190,18 +190,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         binding.chatView.receive(welcome)
     }
 
-    private fun showOpenAIGreet(userName: String?) {
-        if (!remoteConfig.getBoolean(RemoteConfigKey.OPENAI_ENABLED)) {
-            Log.e("MainActivity", "OpenAI is disabled by remote config.")
-            onOpenAIError()
-            return
-        }
-        val greeting = resources.getString(R.string.user_nice_to_meet_you, userName)
-        scope.launch {
-            openAITask(greeting)
-        }
-    }
-
     private fun showInAppReviewIfNeeded() {
         val pref = SharedPreferenceManager
         pref.get(this, Key.LAUNCH_COUNT.name, 0).let {
@@ -245,10 +233,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             showUserNameDialog(false)
         } else {
             userAccount.setName(getUserName(this).toString())
-            when (getAIModel(this)) {
-                AIModelConfig.OPEN_AI.name -> showOpenAIGreet(getUserName(this))
-                else -> showGreet(getUserName(this))
-            }
+            showGreet(getUserName(this))
         }
 
         if (getAIModel(this).equals("")) {

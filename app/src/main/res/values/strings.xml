@@ -2,7 +2,6 @@
     <string name="app_name">YoubiMiku</string>
     <string name="miku_name">Hatsune Miku</string>
 
-    <string name="user_nice_to_meet_you">My name is %1$s.</string>
     <string name="openai_system_prompt">Please enjoy the conversation as Hatsune Miku. The user\'s name is %1$s.</string>
     <string name="miku_nice_to_meet_you">Nice to meet you, %1$s!</string>
     <string name="input_text_hint">"Message…"</string>
