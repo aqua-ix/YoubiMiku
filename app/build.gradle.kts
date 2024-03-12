@@ -31,7 +31,7 @@ android {
             manifestPlaceholders["imobile_Testing"] = "false"
         }
     }
-    flavorDimensions("main")
+    flavorDimensions += listOf("main")
     productFlavors {
         create("ads") {
             dimension = "main"
@@ -46,9 +46,9 @@ android {
     }
     buildFeatures.viewBinding = true
     namespace = "com.aqua_ix.youbimiku"
-    lintOptions {
-        isAbortOnError = false
-        isCheckReleaseBuilds = false
+    lint {
+        abortOnError = false
+        checkReleaseBuilds = false
     }
 }
 
