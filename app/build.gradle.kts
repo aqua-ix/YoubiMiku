@@ -93,9 +93,12 @@ dependencies {
     implementation(platform("com.google.firebase:firebase-bom:32.7.4"))
     implementation("com.google.firebase:firebase-config-ktx")
     implementation("com.google.firebase:firebase-analytics-ktx")
-
+    implementation("com.google.android.gms:play-services-appset:16.0.2")
     implementation("com.google.android.gms:play-services-ads-identifier:18.0.1")
+    implementation("com.google.android.gms:play-services-basement:18.3.0")
     implementation(files("libs/imobileSdkAds.jar"))
+    implementation("com.ironsource.sdk:mediationsdk:7.9.0")
+    implementation("com.ironsource:adqualitysdk:7.17.0")
 }
 
 secrets {
