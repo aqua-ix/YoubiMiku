@@ -54,11 +54,11 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
     private val job = SupervisorJob()
     private val exceptionHandler: CoroutineExceptionHandler =
-        CoroutineExceptionHandler { value, throwable ->
+        CoroutineExceptionHandler { _, throwable ->
             Log.e(TAG, throwable.message.toString())
         }
     private val scope = CoroutineScope(Dispatchers.Default + job + exceptionHandler)
-    var openAITaskJob: Job? = null
+    private var openAITaskJob: Job? = null
 
     public override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -270,13 +270,13 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                     val config = OpenAIConfig(token = it, organization = orgId)
                     openAI = OpenAI(config)
                 } ?: run {
-                    Log.e("MainActivity", "apiKey is null.")
+                    Log.e(TAG, "apiKey is null.")
                     onOpenAIError()
                 }
             }
 
             override fun onCancelled(databaseError: DatabaseError) {
-                Log.e("MainActivity", "Database error: ${databaseError.message}")
+                Log.e(TAG, "Database error: ${databaseError.message}")
                 onOpenAIError()
             }
         })
@@ -381,14 +381,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                     }
             }
         } catch (e: Exception) {
-        }
-    }
-
-    private fun getVersionName(): String {
-        return try {
-            packageManager.getPackageInfo(packageName, 0).versionName
-        } catch (e: Exception) {
-            ""
+            Log.e(TAG, "InAppReview error: ${e.message}")
         }
     }
 
@@ -564,7 +557,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                 response
             }
             Log.d(TAG, "result: $result")
-            if (result == null || result.isEmpty()) {
+            if (result.isNullOrEmpty()) {
                 return
             }
             openAIPreviousResponse = result
