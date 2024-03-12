@@ -33,6 +33,8 @@
     <string name="setting_language_jp">日本語</string>
     <string name="setting_language_en">英語</string>
 
+    <string name="clear_message_history">履歴を消去</string>
+
     <string name="official_account">公式アカウント</string>
     <string name="official_account_error">アプリが見つかりません</string>
 
