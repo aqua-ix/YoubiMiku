@@ -10,6 +10,7 @@ import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.room.Room
 import com.aallam.openai.api.BetaOpenAI
 import com.aallam.openai.api.chat.ChatCompletionRequest
 import com.aallam.openai.api.chat.ChatMessage
@@ -19,6 +20,7 @@ import com.aallam.openai.client.OpenAI
 import com.aallam.openai.client.OpenAIConfig
 import com.aqua_ix.youbimiku.BuildConfig.*
 import com.aqua_ix.youbimiku.config.*
+import com.aqua_ix.youbimiku.database.*
 import com.aqua_ix.youbimiku.databinding.ActivityMainBinding
 import com.github.bassaer.chatmessageview.model.Message
 import com.google.android.play.core.review.ReviewManagerFactory
@@ -44,18 +46,19 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     private lateinit var detectIntent: DetectIntent
     private lateinit var openAI: OpenAI
     private lateinit var remoteConfig: FirebaseRemoteConfig
-    private lateinit var database: FirebaseDatabase
+    private lateinit var firebaseDatabase: FirebaseDatabase
+    private lateinit var appDatabase: AppDatabase
     private lateinit var navMenu: Menu
 
     private var openAIPreviousResponse = ""
 
     private val job = SupervisorJob()
     private val exceptionHandler: CoroutineExceptionHandler =
-        CoroutineExceptionHandler { value, throwable ->
+        CoroutineExceptionHandler { _, throwable ->
             Log.e(TAG, throwable.message.toString())
         }
     private val scope = CoroutineScope(Dispatchers.Default + job + exceptionHandler)
-    var openAITaskJob: Job? = null
+    private var openAITaskJob: Job? = null
 
     public override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -87,7 +90,11 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     }
 
     private fun initDatabase() {
-        database = FirebaseDatabase.getInstance()
+        firebaseDatabase = FirebaseDatabase.getInstance()
+        appDatabase = Room.databaseBuilder(
+            applicationContext,
+            AppDatabase::class.java, "youbimiku"
+        ).build()
     }
 
     private fun onOpenAIError() {
@@ -109,11 +116,32 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         setFontSize(size, binding.chatView)
 
         userAccount = User(0, null, null)
-        mikuAccount = getMikuAccount()
+        mikuAccount = getMikuAccountFromAIModel()
         binding.chatView.setDateSeparatorFontSize(0F)
         binding.chatView.setInputTextHint(getString(R.string.input_text_hint))
         binding.chatView.setOnClickSendButtonListener(this)
         binding.chatView.setMessageMaxWidth(640)
+    }
+
+    private fun restoreMessages() {
+        scope.launch {
+            val messages = appDatabase.messageDao().getAll().map {
+                return@map entityToMessage(
+                    it, when (it.userId) {
+                        0 -> userAccount
+                        else -> getMikuAccountFromId(it.userId)
+                    }
+                )
+            }
+
+            withContext(Dispatchers.Main) {
+                messages.forEach(binding.chatView::receive)
+            }
+
+            if (messages.isEmpty()) {
+                showGreet(userAccount.getName())
+            }
+        }
     }
 
     private fun initBanner() {
@@ -169,7 +197,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         ImobileSdkAd.start(IMOBILE_INTERSTITIAL_SID)
     }
 
-    private fun getMikuAccount(): User {
+    private fun getMikuAccountFromAIModel(): User {
         return if (getAIModel(this) == (AIModelConfig.OPEN_AI.name)) {
             val face = BitmapFactory.decodeResource(resources, R.drawable.normal)
             val name = "${getString(R.string.miku_name)}(GPT)"
@@ -180,6 +208,26 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         }
     }
 
+    private fun getMikuAccountFromId(id: Int): User {
+        return when (id) {
+            1 -> {
+                val face = BitmapFactory.decodeResource(resources, R.drawable.normal)
+                User(1, getString(R.string.miku_name), face)
+            }
+
+            2 -> {
+                val face = BitmapFactory.decodeResource(resources, R.drawable.normal)
+                val name = "${getString(R.string.miku_name)}(GPT)"
+                User(2, name, face)
+            }
+
+            else -> {
+                val face = BitmapFactory.decodeResource(resources, R.drawable.normal)
+                User(1, getString(R.string.miku_name), face)
+            }
+        }
+    }
+
     private fun showGreet(userName: String?) {
         val greeting = resources.getString(R.string.miku_nice_to_meet_you, userName)
         val welcome = Message.Builder()
@@ -187,7 +235,13 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             .setRight(false)
             .setText(greeting)
             .build()
-        binding.chatView.receive(welcome)
+
+        scope.launch {
+            withContext(Dispatchers.Main) {
+                binding.chatView.receive(welcome)
+            }
+            appDatabase.messageDao().insert(messageToEntity(welcome))
+        }
     }
 
     private fun showInAppReviewIfNeeded() {
@@ -205,7 +259,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     }
 
     private fun setupOpenAI() {
-        val reference = database.getReference("secrets/openai")
+        val reference = firebaseDatabase.getReference("secrets/openai")
 
         reference.addValueEventListener(object : ValueEventListener {
             override fun onDataChange(dataSnapshot: DataSnapshot) {
@@ -216,13 +270,13 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                     val config = OpenAIConfig(token = it, organization = orgId)
                     openAI = OpenAI(config)
                 } ?: run {
-                    Log.e("MainActivity", "apiKey is null.")
+                    Log.e(TAG, "apiKey is null.")
                     onOpenAIError()
                 }
             }
 
             override fun onCancelled(databaseError: DatabaseError) {
-                Log.e("MainActivity", "Database error: ${databaseError.message}")
+                Log.e(TAG, "Database error: ${databaseError.message}")
                 onOpenAIError()
             }
         })
@@ -233,7 +287,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             showUserNameDialog(false)
         } else {
             userAccount.setName(getUserName(this).toString())
-            showGreet(getUserName(this))
+            restoreMessages()
         }
 
         if (getAIModel(this).equals("")) {
@@ -252,7 +306,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
     override fun doPositiveClick() {
         userAccount.setName(getUserName(this).toString())
-        showGreet(getUserName(this))
     }
 
     private fun showAIModelDialog(cancelable: Boolean = true) {
@@ -261,14 +314,14 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             .setMessage(getString(R.string.setting_ai_model_message))
             .setPositiveButton(getString(R.string.setting_ai_model_openai)) { _, _ ->
                 setAIModel(this, AIModelConfig.OPEN_AI)
-                mikuAccount = getMikuAccount()
+                mikuAccount = getMikuAccountFromAIModel()
                 if (::navMenu.isInitialized) {
                     navMenu.findItem(R.id.setting_language).isVisible = false
                 }
             }
             .setNegativeButton(getString(R.string.setting_ai_model_dialogflow)) { _, _ ->
                 setAIModel(this, AIModelConfig.DIALOG_FLOW)
-                mikuAccount = getMikuAccount()
+                mikuAccount = getMikuAccountFromAIModel()
                 if (::navMenu.isInitialized) {
                     navMenu.findItem(R.id.setting_language).isVisible = true
                 }
@@ -309,6 +362,16 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             .show()
     }
 
+    private fun clearMessageHistory() {
+        scope.launch {
+            appDatabase.messageDao().deleteAll()
+        }
+
+        // Activityを再起動する
+        finish()
+        startActivity(intent)
+    }
+
     private fun openInAppReview() {
         try {
             val reviewManager = ReviewManagerFactory.create(this)
@@ -318,14 +381,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                     }
             }
         } catch (e: Exception) {
-        }
-    }
-
-    private fun getVersionName(): String {
-        return try {
-            packageManager.getPackageInfo(packageName, 0).versionName
-        } catch (e: Exception) {
-            ""
+            Log.e(TAG, "InAppReview error: ${e.message}")
         }
     }
 
@@ -376,6 +432,11 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                 true
             }
 
+            R.id.clear_message_history -> {
+                clearMessageHistory()
+                true
+            }
+
             R.id.setting_official_account -> {
                 openOfficialAccountIntent()
                 true
@@ -398,6 +459,10 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         sendRequest(binding.chatView.inputText)
         binding.chatView.send(send)
         binding.chatView.inputText = ""
+
+        scope.launch {
+            appDatabase.messageDao().insert(messageToEntity(send))
+        }
     }
 
     private fun sendRequest(text: String) {
@@ -450,6 +515,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         withContext(Dispatchers.Main) {
             binding.chatView.receive(receivedMessage)
         }
+        appDatabase.messageDao().insert(messageToEntity(receivedMessage))
     }
 
     @OptIn(BetaOpenAI::class)
@@ -491,7 +557,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                 response
             }
             Log.d(TAG, "result: $result")
-            if (result == null || result.isEmpty()) {
+            if (result.isNullOrEmpty()) {
                 return
             }
             openAIPreviousResponse = result
@@ -503,6 +569,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             withContext(Dispatchers.Main) {
                 binding.chatView.receive(receivedMessage)
             }
+            appDatabase.messageDao().insert(messageToEntity(receivedMessage))
         }
     }
 

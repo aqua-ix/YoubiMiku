@@ -33,6 +33,8 @@
     <string name="setting_language_jp">Japanese</string>
     <string name="setting_language_en">English</string>
 
+    <string name="clear_message_history">Clear Chat History</string>
+
     <string name="official_account">Twitter Account</string>
     <string name="official_account_error">App not found</string>
 
