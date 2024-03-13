@@ -135,7 +135,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             }
 
             withContext(Dispatchers.Main) {
-                messages.forEach(binding.chatView::receive)
+                binding.chatView.getMessageView().init(messages)
             }
 
             if (messages.isEmpty()) {
@@ -259,8 +259,13 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     }
 
     private fun setupOpenAI() {
-        val reference = firebaseDatabase.getReference("secrets/openai")
+        if (!remoteConfig.getBoolean(RemoteConfigKey.OPENAI_ENABLED)) {
+            Log.e(TAG, "OpenAI is disabled by remote config.")
+            onOpenAIError()
+            return
+        }
 
+        val reference = firebaseDatabase.getReference("secrets/openai")
         reference.addValueEventListener(object : ValueEventListener {
             override fun onDataChange(dataSnapshot: DataSnapshot) {
                 val apiKey = dataSnapshot.child("apiKey").getValue(String::class.java)
@@ -367,9 +372,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             appDatabase.messageDao().deleteAll()
         }
 
-        // Activityを再起動する
-        finish()
-        startActivity(intent)
+        binding.chatView.getMessageView().removeAll()
     }
 
     private fun openInAppReview() {
