@@ -9,6 +9,10 @@
         <value>0</value>
     </entry>
     <entry>
+        <key>ad_network</key>
+        <value>imobile</value>
+    </entry>
+    <entry>
         <key>ad_display_request_times</key>
         <value>30</value>
     </entry>
