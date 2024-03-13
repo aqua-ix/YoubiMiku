@@ -13,8 +13,8 @@ android {
         applicationId = "comviewaquahp.google.sites.youbimiku"
         minSdk = 21
         targetSdk = 34
-        versionCode = 29
-        versionName = "7.9"
+        versionCode = 30
+        versionName = "8.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     packagingOptions {
