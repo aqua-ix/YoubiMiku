@@ -2,6 +2,7 @@ package com.aqua_ix.youbimiku.database
 
 import com.aqua_ix.youbimiku.User
 import com.github.bassaer.chatmessageview.model.Message
+import java.util.Calendar
 
 fun messageToEntity(message: Message): MessageEntity {
     return MessageEntity(
@@ -9,6 +10,7 @@ fun messageToEntity(message: Message): MessageEntity {
         isRightMessage = message.isRight,
         text = message.text.toString(),
         hideIcon = message.isIconHided,
+        sendTime = message.sendTime.timeInMillis
     )
 }
 
@@ -18,5 +20,6 @@ fun entityToMessage(entity: MessageEntity, user: User): Message {
         .setRight(entity.isRightMessage)
         .setText(entity.text)
         .hideIcon(entity.hideIcon)
+        .setSendTime(Calendar.getInstance().apply { timeInMillis = entity.sendTime ?: 0 })
         .build()
 }

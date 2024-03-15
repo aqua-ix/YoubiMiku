@@ -9,5 +9,6 @@ data class MessageEntity(
     val userId: Int,
     val isRightMessage: Boolean,
     val text: String,
-    val hideIcon: Boolean
+    val hideIcon: Boolean,
+    val sendTime: Long?
 )
