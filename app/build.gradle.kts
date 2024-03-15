@@ -17,7 +17,7 @@ android {
         versionName = "8.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
-    packagingOptions {
+    packaging {
         resources.excludes.add("META-INF/INDEX.LIST")
         resources.excludes.add("META-INF/DEPENDENCIES")
     }
@@ -47,6 +47,9 @@ android {
     }
     kotlinOptions {
         jvmTarget = "1.8"
+    }
+    buildFeatures {
+        buildConfig = true
     }
     buildFeatures.viewBinding = true
     namespace = "com.aqua_ix.youbimiku"
