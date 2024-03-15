@@ -16,6 +16,11 @@ android {
         versionCode = 30
         versionName = "8.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        javaCompileOptions {
+            ksp {
+                arg("room.schemaLocation", "$projectDir/schemas")
+            }
+        }
     }
     packaging {
         resources.excludes.add("META-INF/INDEX.LIST")
