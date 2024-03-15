@@ -1,0 +1,28 @@
+name: 'Copy Secrets'
+inputs:
+  google_service_json:
+    description: 'Google Service JSON'
+    required: true
+  dialogflow_secret_json:
+    description: 'Dialogflow Secret JSON'
+    required: true
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup JDK 17
+      uses: actions/setup-java@v3
+      with:
+        distribution: temurin
+        java-version: 17
+    - name: Make gradlew executable
+      run: chmod +x ./gradlew
+      shell: bash
+    - name: Copy google_services.json
+      run: |
+        echo "${{ inputs.google_service_json }}" | base64 --decode --ignore-garbage > ./app/google-services.json
+      shell: bash
+    - name: Copy dialogflow_secret.json
+      run: |
+        mkdir -p ./app/src/main/res/raw
+        echo "${{ inputs.dialogflow_secret_json }}" | base64 --decode --ignore-garbage > ./app/src/main/res/raw/dialogflow_secret.json
+      shell: bash

@@ -8,38 +8,59 @@ on:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
-
     steps:
-    - uses: actions/checkout@v2
-    - name: Set up JDK
-      uses: actions/setup-java@v3
-      with:
-        distribution: temurin
-        java-version: 17
-    - name: Copy google-service
-      env:
-        GOOGLE_SERVICE: ${{ secrets.GOOGLE_SERVICE_JSON }}
-      run: echo $GOOGLE_SERVICE | base64 --decode --ignore-garbage > ./app/google-services.json
-    - name: copy dialogflow-secret
-      env:
-        DIALOGFLOW_SECRET: ${{ secrets.DIALOGFLOW_SECRET_JSON }}
-      run: |
-        mkdir -p ./app/src/main/res/raw
-        echo $DIALOGFLOW_SECRET | base64 --decode --ignore-garbage > ./app/src/main/res/raw/dialogflow_secret.json
-    - name: Make gradlew executable
-      run: chmod +x ./gradlew
-    - name: Run Android Lint
-      run: ./gradlew lint
-    - name: Run Unit Test
-      run: ./gradlew test
-    - name: Build with Gradle
-      run: ./gradlew assembleDebug
-    - name: Upload apk file
-      uses: actions/upload-artifact@v3
-      with:
-        name: apk
-        path: |
-          app/build/outputs/apk/ads/debug/app-ads-debug.apk
-          app/build/outputs/apk/noAds/debug/app-noAds-debug.apk
+      - uses: actions/checkout@v2
+      - uses: ./.github/actions/setup
+        with:
+          google_service_json: ${{ secrets.GOOGLE_SERVICE_JSON }}
+          dialogflow_secret_json: ${{ secrets.DIALOGFLOW_SECRET_JSON }}
+      - name: Build with gradle
+        run: ./gradlew assembleDebug
+      - name: Upload APK
+        uses: actions/upload-artifact@v3
+        with:
+          name: apk
+          path: |
+            app/build/outputs/apk/ads/debug/app-ads-debug.apk
+            app/build/outputs/apk/noAds/debug/app-noAds-debug.apk
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: ./.github/actions/setup
+        with:
+          google_service_json: ${{ secrets.GOOGLE_SERVICE_JSON }}
+          dialogflow_secret_json: ${{ secrets.DIALOGFLOW_SECRET_JSON }}
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+      - name: Run lint
+        run: ./gradlew lint
+  unit-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: ./.github/actions/setup
+        with:
+          google_service_json: ${{ secrets.GOOGLE_SERVICE_JSON }}
+          dialogflow_secret_json: ${{ secrets.DIALOGFLOW_SECRET_JSON }}
+      - name: Run unit tests
+        run: ./gradlew test
+  android-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: ./.github/actions/setup
+        with:
+          google_service_json: ${{ secrets.GOOGLE_SERVICE_JSON }}
+          dialogflow_secret_json: ${{ secrets.DIALOGFLOW_SECRET_JSON }}
+      - name: Enable KVM group perms
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run instrumentation tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 29
+          script: ./gradlew connectedCheck
