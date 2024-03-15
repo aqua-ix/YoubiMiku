@@ -20,6 +20,6 @@ fun entityToMessage(entity: MessageEntity, user: User): Message {
         .setRight(entity.isRightMessage)
         .setText(entity.text)
         .hideIcon(entity.hideIcon)
-        .setSendTime(Calendar.getInstance().apply { timeInMillis = entity.sendTime ?: 0 })
+        .setSendTime(Calendar.getInstance().apply { timeInMillis = entity.sendTime })
         .build()
 }
