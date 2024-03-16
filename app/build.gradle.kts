@@ -16,8 +16,11 @@ android {
         versionCode = 30
         versionName = "8.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        ksp {
+            arg("room.schemaLocation", "$projectDir/schemas")
+        }
     }
-    packagingOptions {
+    packaging {
         resources.excludes.add("META-INF/INDEX.LIST")
         resources.excludes.add("META-INF/DEPENDENCIES")
     }
@@ -48,15 +51,26 @@ android {
     kotlinOptions {
         jvmTarget = "1.8"
     }
+    buildFeatures {
+        buildConfig = true
+    }
     buildFeatures.viewBinding = true
     namespace = "com.aqua_ix.youbimiku"
     lint {
         abortOnError = false
         checkReleaseBuilds = false
     }
+    sourceSets {
+        // Adds exported schema location as test app assets.
+        getByName("androidTest").assets.srcDir("$projectDir/schemas")
+    }
 }
 
 dependencies {
+    testImplementation("androidx.test.ext:junit:1.1.5")
+    androidTestImplementation("androidx.room:room-testing:2.6.1")
+    androidTestImplementation("androidx.test.ext:junit-ktx:1.1.5")
+
     val roomVersion = "2.6.1"
     implementation("androidx.room:room-runtime:$roomVersion")
     annotationProcessor("androidx.room:room-compiler:$roomVersion")
