@@ -12,10 +12,10 @@ import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.room.Room
-import com.aallam.openai.api.BetaOpenAI
 import com.aallam.openai.api.chat.ChatCompletionRequest
 import com.aallam.openai.api.chat.ChatMessage
 import com.aallam.openai.api.chat.ChatRole
+import com.aallam.openai.api.core.FinishReason
 import com.aallam.openai.api.model.ModelId
 import com.aallam.openai.client.OpenAI
 import com.aallam.openai.client.OpenAIConfig
@@ -640,7 +640,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         appDatabase.messageDao().insert(messageToEntity(receivedMessage))
     }
 
-    @OptIn(BetaOpenAI::class)
     private suspend fun openAITask(text: String) {
         val maxLength = remoteConfig.getDouble(RemoteConfigKey.MAX_USER_TEXT_LENGTH).toInt()
         val sendText = if (text.length <= maxLength) text else text.substring(0, maxLength)
@@ -670,10 +669,10 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         val completion = openAI.chatCompletion(chatCompletionRequest)
         Log.d(TAG, "completion: $completion")
         val choice = completion.choices.first()
-        choice.message?.content.let {
+        choice.message.content.let {
             val response = it?.replace("^$|\n", "")
             Log.d(TAG, "response: $response")
-            val result = if (choice.finishReason == "length") {
+            val result = if (choice.finishReason == FinishReason.Length) {
                 "$response…"
             } else {
                 response

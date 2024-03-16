@@ -7,7 +7,6 @@ import com.google.auth.oauth2.GoogleCredentials
 import com.google.cloud.dialogflow.v2.*
 import com.aqua_ix.youbimiku.config.LanguageConfig
 import com.aqua_ix.youbimiku.config.getLanguage
-import com.aqua_ix.youbimiku.R
 
 class DetectIntent(
     private val context: Context,

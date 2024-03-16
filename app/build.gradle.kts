@@ -98,9 +98,9 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     implementation("androidx.work:work-runtime-ktx:2.9.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.1")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.2")
 
-    implementation(platform("com.aallam.openai:openai-client-bom:3.1.0"))
+    implementation(platform("com.aallam.openai:openai-client-bom:3.7.0"))
     implementation("com.aallam.openai:openai-client")
     implementation("io.ktor:ktor-client-okhttp")
 

@@ -21,7 +21,7 @@
     <string name="setting_ai_model">AI Model</string>
     <string name="setting_ai_model_message">You can now talk to Hatsune Miku with the GPT model!\n\n*If there is no response after waiting for a long time, please switch to the standard model from "AI model" menu and enjoy.</string>
     <string name="setting_ai_model_dialogflow">Talk with standard model</string>
-    <string name="setting_ai_model_openai">Try GPT model (Beta)</string>
+    <string name="setting_ai_model_openai">Try GPT model</string>
 
     <string name="setting_font_size">Font Size</string>
     <string name="setting_font_xsmall">Extra Small</string>
