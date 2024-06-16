@@ -81,7 +81,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         initDatabase()
         showInAppReviewIfNeeded()
 
-        setupOpenAI()
         setupChat()
         setupAdNetwork()
     }
@@ -93,7 +92,13 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         }
         remoteConfig.setConfigSettingsAsync(configSettings)
         remoteConfig.setDefaultsAsync(R.xml.remote_config_defaults)
-        remoteConfig.fetchAndActivate()
+        remoteConfig.fetchAndActivate().addOnCompleteListener { task ->
+            if (task.isSuccessful) {
+                setupOpenAI()
+            } else {
+                Log.e(TAG, "Failed to fetch remote config.")
+            }
+        }
     }
 
     private fun initDatabase() {
