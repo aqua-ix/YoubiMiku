@@ -22,7 +22,8 @@ Let's talk to Hatsune Miku.
 
 ## Credit
 
-This application features an adaptation of Hatsune Miku, © Crypton Future Media, Inc. 2007, licensed under a [CC BY-NC](http://creativecommons.org/licenses/by-nc/3.0/).
+This application features an adaptation of Hatsune Miku,  
+© Crypton Future Media, Inc. 2007, licensed under a [CC BY-NC](http://creativecommons.org/licenses/by-nc/3.0/).
 
 ## Author
 
