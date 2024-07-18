@@ -12,7 +12,7 @@ Let's talk to Hatsune Miku.
 
 ## Setup
 
-- Copy [secrets.defaults.properties](./secrets.defaults.properties) to `local.properties` and set the required values.
+- Copy [secrets.defaults.properties](./secrets.defaults.properties) to `secrets.properties` and set the required values.
 - Place the Firebase setting file in `app/google-services.json`
 - Place the Dialogflow secret in `app/src/main/res/raw/dialogflow_secret.json`.
 
