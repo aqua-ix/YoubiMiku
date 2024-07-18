@@ -15,7 +15,7 @@ class DetectIntent(
 
     companion object {
         private const val TAG = "DetectIntent"
-        const val PROJECT_ID = "youbimiku-oopulf"
+        const val PROJECT_ID = BuildConfig.DIALOGFLOW_PROJECT_ID
         val SCOPE = listOf("https://www.googleapis.com/auth/cloud-platform")
     }
 
