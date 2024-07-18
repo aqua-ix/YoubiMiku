@@ -10,21 +10,13 @@ Let's talk to Hatsune Miku.
 
 <img src="v2.0_demo.gif" width="320px">
 
-## Download
+## Setup
 
-<a href="https://play.google.com/store/apps/details?id=comviewaquahp.google.sites.youbimiku&hl=ja">
-  <img src="https://play.google.com/intl/ja/badges/static/images/badges/en_badge_web_generic.png" width="250px">
-</a>
-
-## Licence
-
-[Apache License 2.0](https://github.com/Aqua-ix/YoubiMiku/blob/master/LICENSE)
+- Copy [secrets.defaults.properties](./secrets.defaults.properties) to `local.properties` and set the required values.
+- Place the Firebase setting file in `app/google-services.json`
+- Place the Dialogflow secret in `app/src/main/res/raw/dialogflow_secret.json`.
 
 ## Credit
 
 This application features an adaptation of Hatsune Miku,  
 © Crypton Future Media, Inc. 2007, licensed under a [CC BY-NC](http://creativecommons.org/licenses/by-nc/3.0/).
-
-## Author
-
-[Soichi Ikebe](https://github.com/Aqua-ix)
