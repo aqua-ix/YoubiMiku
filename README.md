@@ -6,9 +6,7 @@ YoubiMiku / ユビキタ初音ミク
 
 Let's talk to Hatsune Miku.
 
-## Demo
-
-<img src="v2.0_demo.gif" width="320px">
+<img src="img/chat.png" width="320px">
 
 ## Setup
 
