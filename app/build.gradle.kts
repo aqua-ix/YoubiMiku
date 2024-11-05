@@ -13,8 +13,8 @@ android {
         applicationId = "comviewaquahp.google.sites.youbimiku"
         minSdk = 21
         targetSdk = 35
-        versionCode = 34
-        versionName = "8.4"
+        versionCode = 35
+        versionName = "8.5"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         ksp {
             arg("room.schemaLocation", "$projectDir/schemas")
