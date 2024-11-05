@@ -8,11 +8,11 @@ plugins {
 }
 
 android {
-    compileSdk = 34
+    compileSdk = 35
     defaultConfig {
         applicationId = "comviewaquahp.google.sites.youbimiku"
         minSdk = 21
-        targetSdk = 34
+        targetSdk = 35
         versionCode = 34
         versionName = "8.4"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
