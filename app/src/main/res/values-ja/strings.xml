@@ -44,4 +44,7 @@
     <string name="setting_send_feedback_error">メールアプリが見つかりません</string>
     <string name="feedback_email_subject">"[ユビキタ初音ミク] フィードバック"</string>
     <string name="feedback_email_inquiry">本文: </string>
+
+    <string name="copy_message">コピー</string>
+    <string name="message_copied">コピーしました</string>
 </resources>

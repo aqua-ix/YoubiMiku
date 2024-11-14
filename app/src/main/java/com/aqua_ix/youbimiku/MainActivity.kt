@@ -1,5 +1,7 @@
 package com.aqua_ix.youbimiku
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Intent
 import android.graphics.BitmapFactory
 import android.net.Uri
@@ -132,7 +134,30 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         binding.chatView.setDateSeparatorFontSize(0F)
         binding.chatView.setInputTextHint(getString(R.string.input_text_hint))
         binding.chatView.setOnClickSendButtonListener(this)
+        binding.chatView.setOnBubbleLongClickListener(object : Message.OnBubbleLongClickListener {
+            override fun onLongClick(message: Message) {
+                showActionSheet(message)
+            }
+        })
         binding.chatView.setMessageMaxWidth(640)
+    }
+
+    private fun showActionSheet(message: Message) {
+        val options = arrayOf(getString(R.string.copy_message))
+        AlertDialog.Builder(this)
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> message.text?.let { copyMessageToClipboard(it) }
+                }
+            }
+            .show()
+    }
+
+    private fun copyMessageToClipboard(text: String) {
+        val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
+        val clip = ClipData.newPlainText("Copied Message", text)
+        clipboard.setPrimaryClip(clip)
+        Toast.makeText(this, getString(R.string.message_copied), Toast.LENGTH_SHORT).show()
     }
 
     private fun restoreMessages() {

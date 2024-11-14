@@ -45,4 +45,7 @@
     <string name="feedback_email_subject">[YoubiMiku] FeedBack</string>
     <string name="feedback_email_address" translatable="false">aquapinfo@gmail.com</string>
     <string name="feedback_email_inquiry">Inquiry: </string>
+
+    <string name="copy_message">Copy</string>
+    <string name="message_copied">Copied</string>
 </resources>
