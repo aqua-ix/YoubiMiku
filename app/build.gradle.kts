@@ -13,7 +13,7 @@ android {
         applicationId = "comviewaquahp.google.sites.youbimiku"
         minSdk = 21
         targetSdk = 35
-        versionCode = 35
+        versionCode = 36
         versionName = "8.5"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         ksp {
