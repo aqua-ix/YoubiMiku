@@ -7,8 +7,12 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
-import android.view.*
-import android.view.ViewGroup.LayoutParams.*
+import android.view.Gravity
+import android.view.Menu
+import android.view.MenuItem
+import android.view.View
+import android.view.ViewGroup
+import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
@@ -21,9 +25,28 @@ import com.aallam.openai.api.core.FinishReason
 import com.aallam.openai.api.model.ModelId
 import com.aallam.openai.client.OpenAI
 import com.aallam.openai.client.OpenAIConfig
-import com.aqua_ix.youbimiku.BuildConfig.*
-import com.aqua_ix.youbimiku.config.*
-import com.aqua_ix.youbimiku.database.*
+import com.aqua_ix.youbimiku.BuildConfig.BUILD_TYPE
+import com.aqua_ix.youbimiku.BuildConfig.FLAVOR
+import com.aqua_ix.youbimiku.BuildConfig.IMOBILE_BANNER_SID
+import com.aqua_ix.youbimiku.BuildConfig.IMOBILE_INTERSTITIAL_SID
+import com.aqua_ix.youbimiku.BuildConfig.IMOBILE_MID
+import com.aqua_ix.youbimiku.BuildConfig.IMOBILE_PID
+import com.aqua_ix.youbimiku.BuildConfig.IRONSOURCE_APP_KEY
+import com.aqua_ix.youbimiku.config.AIModelConfig
+import com.aqua_ix.youbimiku.config.FontSizeConfig
+import com.aqua_ix.youbimiku.config.Key
+import com.aqua_ix.youbimiku.config.LanguageConfig
+import com.aqua_ix.youbimiku.config.SharedPreferenceManager
+import com.aqua_ix.youbimiku.config.getAIModel
+import com.aqua_ix.youbimiku.config.getFontSizeType
+import com.aqua_ix.youbimiku.config.getLanguage
+import com.aqua_ix.youbimiku.config.getOpenAIRequestCount
+import com.aqua_ix.youbimiku.config.setAIModel
+import com.aqua_ix.youbimiku.config.setFontSize
+import com.aqua_ix.youbimiku.config.setOpenAIRequestCount
+import com.aqua_ix.youbimiku.database.AppDatabase
+import com.aqua_ix.youbimiku.database.entityToMessage
+import com.aqua_ix.youbimiku.database.messageToEntity
 import com.aqua_ix.youbimiku.databinding.ActivityMainBinding
 import com.github.bassaer.chatmessageview.model.Message
 import com.google.android.play.core.review.ReviewManagerFactory
@@ -35,7 +58,9 @@ import com.google.firebase.ktx.Firebase
 import com.google.firebase.remoteconfig.FirebaseRemoteConfig
 import com.google.firebase.remoteconfig.ktx.remoteConfig
 import com.google.firebase.remoteconfig.ktx.remoteConfigSettings
-import com.ironsource.mediationsdk.*
+import com.ironsource.mediationsdk.ISBannerSize
+import com.ironsource.mediationsdk.IronSource
+import com.ironsource.mediationsdk.IronSourceBannerLayout
 import com.ironsource.mediationsdk.adunit.adapter.utility.AdInfo
 import com.ironsource.mediationsdk.integration.IntegrationHelper
 import com.ironsource.mediationsdk.logger.IronSourceError
@@ -44,7 +69,15 @@ import com.ironsource.mediationsdk.sdk.LevelPlayInterstitialListener
 import jp.co.imobile.sdkads.android.FailNotificationReason
 import jp.co.imobile.sdkads.android.ImobileSdkAd
 import jp.co.imobile.sdkads.android.ImobileSdkAdListener
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineExceptionHandler
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 
 class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
@@ -134,20 +167,37 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         binding.chatView.setDateSeparatorFontSize(0F)
         binding.chatView.setInputTextHint(getString(R.string.input_text_hint))
         binding.chatView.setOnClickSendButtonListener(this)
-        binding.chatView.setOnBubbleLongClickListener(object : Message.OnBubbleLongClickListener {
-            override fun onLongClick(message: Message) {
-                showActionSheet(message)
-            }
-        })
         binding.chatView.setMessageMaxWidth(640)
+
+        CoroutineScope(Dispatchers.Main).launch {
+            delay(500)
+            binding.chatView.setOnBubbleLongClickListener(object :
+                Message.OnBubbleLongClickListener {
+                override fun onLongClick(message: Message) {
+                    Log.d(TAG, "onLongClick: ${message.text}")
+                    showActionSheet(message)
+                }
+            })
+        }
     }
 
     private fun showActionSheet(message: Message) {
-        val options = arrayOf(getString(R.string.copy_message))
+        val options = arrayOf(
+            getString(R.string.copy_message),
+            getString(R.string.report_message)
+        )
         AlertDialog.Builder(this)
             .setItems(options) { _, which ->
                 when (which) {
                     0 -> message.text?.let { copyMessageToClipboard(it) }
+                    1 -> message.text?.let {
+                        ReportUtil.showReportReasonDialog(
+                            this,
+                            it,
+                            userAccount.getName() ?: "",
+                            scope
+                        )
+                    }
                 }
             }
             .show()

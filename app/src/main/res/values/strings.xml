@@ -48,4 +48,11 @@
 
     <string name="copy_message">Copy</string>
     <string name="message_copied">Copied</string>
+    <string name="report_message">Report</string>
+    <string name="report_message_reason">Reason</string>
+    <string name="report_message_reason_required">Please enter a reason</string>
+    <string name="report_message_send">Send</string>
+    <string name="report_message_cancel">Cancel</string>
+    <string name="message_reported">Reported</string>
+    <string name="message_reported_error">Report failed</string>
 </resources>

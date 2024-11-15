@@ -47,4 +47,11 @@
 
     <string name="copy_message">コピー</string>
     <string name="message_copied">コピーしました</string>
+    <string name="report_message">問題を報告</string>
+    <string name="report_message_reason">理由</string>
+    <string name="report_message_reason_required">理由を入力してください</string>
+    <string name="report_message_send">送信</string>
+    <string name="report_message_cancel">キャンセル</string>
+    <string name="message_reported">問題を報告しました</string>
+    <string name="message_reported_error">報告に失敗しました</string>
 </resources>
