@@ -535,14 +535,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         }
     }
 
-    private fun loadAvatarView() {
-        // Get user name and encode it for URL
-        val userName = getUserName(this)?.let { Uri.encode(it) } ?: ""
-        // Construct URL with query parameter
-        val url = "${BuildConfig.AVATAR_BASE_URL}?userName=$userName"
-        webView.loadUrl(url)
-    }
-
     private fun showUserNameDialog(cancelable: Boolean = true) {
         val dialog = UserNameDialogFragment()
         val args = Bundle()
@@ -555,7 +547,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     override fun doPositiveClick() {
         userAccount.setName(getUserName(this).toString())
         if (isAvatarMode) {
-            loadAvatarView()
+            webView.loadUrl(BuildConfig.AVATAR_BASE_URL)
         }
     }
 
@@ -656,6 +648,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             menu.findItem(R.id.setting_language).isVisible = it == AIModelConfig.DIALOG_FLOW.name
         }
 
+        menu.findItem(R.id.setting_user_name).isVisible = !isAvatarMode
         menu.findItem(R.id.setting_ai_model).isVisible = !isAvatarMode
         menu.findItem(R.id.setting_language).isVisible = !isAvatarMode
         menu.findItem(R.id.setting_font_size).isVisible = !isAvatarMode
@@ -719,7 +712,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             binding.chatView.visibility = View.GONE
             webView.visibility = View.VISIBLE
             binding.progressBar.visibility = View.VISIBLE
-            loadAvatarView()
+            webView.loadUrl(BuildConfig.AVATAR_BASE_URL)
         } else {
             // Switch back to chat mode
             binding.chatView.visibility = View.VISIBLE
