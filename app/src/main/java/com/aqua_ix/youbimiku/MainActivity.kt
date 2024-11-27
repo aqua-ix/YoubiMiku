@@ -1011,7 +1011,11 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                 if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                     webView.reload()
                 } else if (grantResults[0] == PackageManager.PERMISSION_DENIED) {
-                    Toast.makeText(this, R.string.avatar_mode_error, Toast.LENGTH_SHORT).show()
+                    Toast.makeText(
+                        this,
+                        R.string.avatar_mode_needs_record_audio_permission,
+                        Toast.LENGTH_SHORT
+                    ).show()
                 }
             }
         }
