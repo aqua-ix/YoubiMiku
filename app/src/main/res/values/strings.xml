@@ -56,6 +56,7 @@
     <string name="message_reported">Reported</string>
     <string name="message_reported_error">Report failed</string>
 
+    <string name="chat_mode">Chat Mode</string>
     <string name="avatar_mode">Avatar Mode</string>
     <string name="avatar_mode_error">Failed to load avatar page</string>
     <string name="avatar_mode_message">You can now talk to Hatsune Miku in 3D avatar mode!\n\nYou can change to avatar mode from the button on the top right of the screen.</string>

@@ -655,8 +655,17 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         menu.findItem(R.id.clear_message_history).isVisible = !isAvatarMode
 
         menu.add(Menu.NONE, 1, Menu.NONE, R.string.avatar_mode)
-            .setIcon(R.drawable.ic_cube)
             .setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
+
+        if (isAvatarMode) {
+            menu.findItem(1)
+                .setTitle(R.string.chat_mode)
+                .setIcon(R.drawable.ic_chat)
+        } else {
+            menu.findItem(1)
+                .setTitle(R.string.avatar_mode)
+                .setIcon(R.drawable.ic_cube)
+        }
 
         navMenu = menu
         return true
