@@ -1,5 +1,6 @@
 package com.aqua_ix.youbimiku
 
+import android.annotation.SuppressLint
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Intent
@@ -8,8 +9,6 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.util.Log
 import android.view.Gravity
 import android.view.Menu
@@ -21,6 +20,7 @@ import android.webkit.PermissionRequest
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
@@ -91,6 +91,8 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.net.HttpURLConnection
+import java.net.URL
 
 
 class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
@@ -108,6 +110,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
     private var isAvatarMode = false
     private lateinit var webView: WebView
+    private lateinit var avatarClientId: String
+    private lateinit var avatarClientSecret: String
 
     private var openAIPreviousResponse = ""
 
@@ -502,14 +506,25 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         }
 
 
-        if (getUIMode(this) == "") {
-            showAvatarModeInfoDialog()
-        } else {
-            isAvatarMode = getUIMode(this) == UIModeConfig.AVATAR.name
-            Handler(Looper.getMainLooper()).postDelayed({
-                toggleAvatarMode(isAvatarMode)
-            }, 300) // 起動直後にWebViewをロードするとクラッシュするため遅延させる
-        }
+        val cfReference = firebaseDatabase.getReference("secrets/cloudflare")
+        cfReference.addValueEventListener(object : ValueEventListener {
+            override fun onDataChange(dataSnapshot: DataSnapshot) {
+                avatarClientId = dataSnapshot.child("clientId").getValue(String::class.java) ?: ""
+                avatarClientSecret =
+                    dataSnapshot.child("clientSecret").getValue(String::class.java) ?: ""
+
+                if (getUIMode(this@MainActivity) == "") {
+                    showAvatarModeInfoDialog()
+                } else {
+                    isAvatarMode = getUIMode(this@MainActivity) == UIModeConfig.AVATAR.name
+                    toggleAvatarMode(isAvatarMode)
+                }
+            }
+
+            override fun onCancelled(databaseError: DatabaseError) {
+                Log.e(TAG, "Database error: ${databaseError.message}")
+            }
+        })
     }
 
     private fun showAvatarModeInfoDialog() {
@@ -535,6 +550,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         dialog.show()
     }
 
+    @SuppressLint("SetJavaScriptEnabled")
     private fun setupWebView() {
         webView = binding.webView
         webView.visibility = View.GONE
@@ -542,11 +558,45 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         webView.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
-            allowFileAccess = true
         }
 
         // Add WebView client to handle page loading
         webView.webViewClient = object : WebViewClient() {
+            override fun shouldInterceptRequest(
+                view: WebView?,
+                request: WebResourceRequest?
+            ): WebResourceResponse? {
+                val url = request?.url.toString()
+                if (url == BuildConfig.AVATAR_BASE_URL || !url.startsWith(BuildConfig.AVATAR_BASE_URL)) {
+                    return super.shouldInterceptRequest(view, request)
+                }
+
+                val headers = mapOf(
+                    "CF-Access-Client-Id" to avatarClientId,
+                    "CF-Access-Client-Secret" to avatarClientSecret
+                )
+
+                return try {
+                    val connection = URL(url).openConnection() as HttpURLConnection
+                    headers.forEach { connection.setRequestProperty(it.key, it.value) }
+                    connection.connect()
+
+                    Log.d(
+                        TAG,
+                        "WebResourceResponse: ${connection.contentType}, ${connection.contentEncoding}, ${connection.inputStream}, ${connection.headerFields}"
+                    )
+
+                    WebResourceResponse(
+                        connection.contentType,
+                        connection.contentEncoding ?: "utf-8",
+                        connection.inputStream
+                    )
+                } catch (e: Exception) {
+                    Log.e(TAG, "WebResourceResponse error: $e")
+                    return super.shouldInterceptRequest(view, request)
+                }
+            }
+
             override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                 super.onPageStarted(view, url, favicon)
                 binding.progressBar.visibility = View.VISIBLE
@@ -592,6 +642,14 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         }
     }
 
+    private fun loadAvatarPage() {
+        val headers = mapOf(
+            "CF-Access-Client-Id" to avatarClientId,
+            "CF-Access-Client-Secret" to avatarClientSecret
+        )
+        webView.loadUrl(BuildConfig.AVATAR_BASE_URL, headers)
+    }
+
     private fun showUserNameDialog(cancelable: Boolean = true) {
         val dialog = UserNameDialogFragment()
         val args = Bundle()
@@ -604,7 +662,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     override fun doPositiveClick() {
         userAccount.setName(getUserName(this).toString())
         if (isAvatarMode) {
-            webView.loadUrl(BuildConfig.AVATAR_BASE_URL)
+            loadAvatarPage()
         }
     }
 
@@ -779,7 +837,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             binding.chatView.visibility = View.GONE
             binding.progressBar.visibility = View.VISIBLE
             webView.visibility = View.VISIBLE
-            webView.loadUrl(BuildConfig.AVATAR_BASE_URL)
+            loadAvatarPage()
         } else {
             // Switch back to chat mode
             binding.chatView.visibility = View.VISIBLE
