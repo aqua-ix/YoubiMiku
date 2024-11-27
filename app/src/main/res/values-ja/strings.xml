@@ -54,4 +54,8 @@
     <string name="report_message_cancel">キャンセル</string>
     <string name="message_reported">問題を報告しました</string>
     <string name="message_reported_error">報告に失敗しました</string>
+
+    <string name="avatar_mode">アバターモード</string>
+    <string name="avatar_mode_error">アバター画面の読み込みに失敗しました</string>
+    <string name="avatar_mode_message">3Dアバターモードが追加されました！右上のアイコンをタップしてお楽しみください。</string>
 </resources>

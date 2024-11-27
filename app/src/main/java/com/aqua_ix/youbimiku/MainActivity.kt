@@ -1,8 +1,10 @@
 package com.aqua_ix.youbimiku
 
+import android.annotation.SuppressLint
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Intent
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
@@ -13,6 +15,10 @@ import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import android.webkit.WebResourceError
+import android.webkit.WebResourceRequest
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
@@ -93,6 +99,9 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     private lateinit var navMenu: Menu
     private lateinit var ironSourceBannerLayout: IronSourceBannerLayout
 
+    private var isAvatarMode = false
+    private lateinit var webView: WebView
+
     private var openAIPreviousResponse = ""
 
     private val job = SupervisorJob()
@@ -117,6 +126,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         showInAppReviewIfNeeded()
 
         setupChat()
+        setupWebView()
         setupAdNetwork()
     }
 
@@ -487,6 +497,52 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         }
     }
 
+    private fun setupWebView() {
+        webView = binding.webView
+        webView.visibility = View.GONE
+
+        webView.settings.apply {
+            javaScriptEnabled = true
+            domStorageEnabled = true
+            allowFileAccess = true
+        }
+
+        // Add WebView client to handle page loading
+        webView.webViewClient = object : WebViewClient() {
+            override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
+                super.onPageStarted(view, url, favicon)
+                binding.progressBar.visibility = View.VISIBLE
+            }
+
+            override fun onPageFinished(view: WebView?, url: String?) {
+                super.onPageFinished(view, url)
+                binding.progressBar.visibility = View.GONE
+            }
+
+            @SuppressLint("NewApi")
+            override fun onReceivedError(
+                view: WebView?,
+                request: WebResourceRequest?,
+                error: WebResourceError?
+            ) {
+                super.onReceivedError(view, request, error)
+                // Handle loading errors
+                binding.progressBar.visibility = View.GONE
+                Toast.makeText(this@MainActivity, R.string.avatar_mode_error, Toast.LENGTH_SHORT)
+                    .show()
+                toggleAvatarMode()
+            }
+        }
+    }
+
+    private fun loadAvatarView() {
+        // Get user name and encode it for URL
+        val userName = getUserName(this)?.let { Uri.encode(it) } ?: ""
+        // Construct URL with query parameter
+        val url = "${BuildConfig.AVATAR_BASE_URL}?userName=$userName"
+        webView.loadUrl(url)
+    }
+
     private fun showUserNameDialog(cancelable: Boolean = true) {
         val dialog = UserNameDialogFragment()
         val args = Bundle()
@@ -498,6 +554,9 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
     override fun doPositiveClick() {
         userAccount.setName(getUserName(this).toString())
+        if (isAvatarMode) {
+            loadAvatarView()
+        }
     }
 
     private fun showAIModelDialog(cancelable: Boolean = true) {
@@ -596,12 +655,27 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         getAIModel(this)?.let {
             menu.findItem(R.id.setting_language).isVisible = it == AIModelConfig.DIALOG_FLOW.name
         }
+
+        menu.findItem(R.id.setting_ai_model).isVisible = !isAvatarMode
+        menu.findItem(R.id.setting_language).isVisible = !isAvatarMode
+        menu.findItem(R.id.setting_font_size).isVisible = !isAvatarMode
+        menu.findItem(R.id.clear_message_history).isVisible = !isAvatarMode
+
+        menu.add(Menu.NONE, 1, Menu.NONE, R.string.avatar_mode)
+            .setIcon(R.drawable.ic_cube)
+            .setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
+
         navMenu = menu
         return true
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
+            1 -> {
+                toggleAvatarMode()
+                true
+            }
+
             R.id.setting_user_name -> {
                 showUserNameDialog()
                 true
@@ -635,6 +709,26 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             else -> super.onOptionsItemSelected(item)
         }
     }
+
+    private fun toggleAvatarMode() {
+        isAvatarMode = !isAvatarMode
+        invalidateOptionsMenu()
+
+        if (isAvatarMode) {
+            // Switch to Avatar mode
+            binding.chatView.visibility = View.GONE
+            webView.visibility = View.VISIBLE
+            binding.progressBar.visibility = View.VISIBLE
+            loadAvatarView()
+        } else {
+            // Switch back to chat mode
+            binding.chatView.visibility = View.VISIBLE
+            webView.visibility = View.GONE
+            webView.loadUrl("about:blank")
+            binding.progressBar.visibility = View.GONE
+        }
+    }
+
 
     override fun onClick(v: View) {
         if (binding.chatView.inputText.isEmpty()) {
