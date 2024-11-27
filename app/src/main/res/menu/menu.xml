@@ -10,6 +10,9 @@
         android:title="@string/setting_language"/>
     <item android:id="@+id/clear_message_history"
         android:title="@string/clear_message_history"/>
+    <item
+        android:id="@+id/avatar_mode_reload"
+        android:title="@string/avatar_mode_reload" />
     <item android:id="@+id/setting_official_account"
         android:title="@string/official_account"/>
 </menu>

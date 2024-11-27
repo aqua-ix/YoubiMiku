@@ -1,8 +1,11 @@
 package com.aqua_ix.youbimiku
 
+import android.annotation.SuppressLint
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
@@ -13,6 +16,13 @@ import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import android.webkit.PermissionRequest
+import android.webkit.WebChromeClient
+import android.webkit.WebResourceError
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
@@ -37,13 +47,17 @@ import com.aqua_ix.youbimiku.config.FontSizeConfig
 import com.aqua_ix.youbimiku.config.Key
 import com.aqua_ix.youbimiku.config.LanguageConfig
 import com.aqua_ix.youbimiku.config.SharedPreferenceManager
+import com.aqua_ix.youbimiku.config.UIModeConfig
 import com.aqua_ix.youbimiku.config.getAIModel
+import com.aqua_ix.youbimiku.config.getDisplayName
 import com.aqua_ix.youbimiku.config.getFontSizeType
 import com.aqua_ix.youbimiku.config.getLanguage
 import com.aqua_ix.youbimiku.config.getOpenAIRequestCount
+import com.aqua_ix.youbimiku.config.getUIMode
 import com.aqua_ix.youbimiku.config.setAIModel
 import com.aqua_ix.youbimiku.config.setFontSize
 import com.aqua_ix.youbimiku.config.setOpenAIRequestCount
+import com.aqua_ix.youbimiku.config.setUIMode
 import com.aqua_ix.youbimiku.database.AppDatabase
 import com.aqua_ix.youbimiku.database.entityToMessage
 import com.aqua_ix.youbimiku.database.messageToEntity
@@ -78,6 +92,8 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.net.HttpURLConnection
+import java.net.URL
 
 
 class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
@@ -93,6 +109,11 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     private lateinit var navMenu: Menu
     private lateinit var ironSourceBannerLayout: IronSourceBannerLayout
 
+    private var isAvatarMode = false
+    private lateinit var webView: WebView
+    private lateinit var avatarClientId: String
+    private lateinit var avatarClientSecret: String
+
     private var openAIPreviousResponse = ""
 
     private val job = SupervisorJob()
@@ -102,6 +123,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         }
     private val scope = CoroutineScope(Dispatchers.Default + job + exceptionHandler)
     private var openAITaskJob: Job? = null
+
+    private var PERMISSIONS_REQUEST_RECORD_AUDIO = 0
 
     public override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -117,6 +140,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         showInAppReviewIfNeeded()
 
         setupChat()
+        setupWebView()
         setupAdNetwork()
     }
 
@@ -480,11 +504,157 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         } else {
             userAccount.setName(getUserName(this).toString())
             restoreMessages()
+
+            if (getUIMode(this) == "") {
+                // 非初回起動ユーザー向けのアバターモード案内ダイアログ
+                showAvatarModeInfoDialog()
+            } else if (getAIModel(this) == "") {
+                // 非初回起動ユーザー向けのAIモデル選択ダイアログ
+                showAIModelDialog(false)
+            }
         }
 
-        if (getAIModel(this).equals("")) {
-            showAIModelDialog(false)
+        val cfReference = firebaseDatabase.getReference("secrets/cloudflare")
+        cfReference.addValueEventListener(object : ValueEventListener {
+            override fun onDataChange(dataSnapshot: DataSnapshot) {
+                avatarClientId = dataSnapshot.child("clientId").getValue(String::class.java) ?: ""
+                avatarClientSecret =
+                    dataSnapshot.child("clientSecret").getValue(String::class.java) ?: ""
+
+                if (getUIMode(this@MainActivity) != "") {
+                    isAvatarMode = getUIMode(this@MainActivity) == UIModeConfig.AVATAR.name
+                    toggleAvatarMode(isAvatarMode)
+                }
+            }
+
+            override fun onCancelled(databaseError: DatabaseError) {
+                Log.e(TAG, "Database error: ${databaseError.message}")
+            }
+        })
+    }
+
+    private fun showAvatarModeInfoDialog() {
+        val builder = AlertDialog.Builder(this)
+            .setTitle(getString(R.string.avatar_mode_message_title))
+            .setMessage(getString(R.string.avatar_mode_message_text))
+            .setPositiveButton(R.string.avatar_mode_message_accept) { _, _ ->
+                toggleAvatarMode(true)
+
+                // 初回起動時にアバターモードを選択した場合はチャットモードをOpenAIに設定
+                setAIModel(this, AIModelConfig.OPEN_AI)
+            }
+            .setNegativeButton(R.string.avatar_mode_message_cancel) { _, _ ->
+                setUIMode(this, UIModeConfig.CHAT)
+
+                // 初回起動時にアバターモードを選択しなかった場合はAIモデル選択ダイアログを表示
+                if (getAIModel(this).equals("")) {
+                    showAIModelDialog(false)
+                }
+            }
+            .setCancelable(false)
+
+        val dialog = builder.create()
+        dialog.show()
+    }
+
+    @SuppressLint("SetJavaScriptEnabled")
+    private fun setupWebView() {
+        webView = binding.webView
+        webView.visibility = View.GONE
+
+        webView.settings.apply {
+            javaScriptEnabled = true
+            domStorageEnabled = true
         }
+
+        // Add WebView client to handle page loading
+        webView.webViewClient = object : WebViewClient() {
+            override fun shouldInterceptRequest(
+                view: WebView?,
+                request: WebResourceRequest?
+            ): WebResourceResponse? {
+                val url = request?.url.toString()
+                if (url == BuildConfig.AVATAR_BASE_URL || !url.startsWith(BuildConfig.AVATAR_BASE_URL)) {
+                    return super.shouldInterceptRequest(view, request)
+                }
+
+                val headers = mapOf(
+                    "CF-Access-Client-Id" to avatarClientId,
+                    "CF-Access-Client-Secret" to avatarClientSecret
+                )
+
+                return try {
+                    val connection = URL(url).openConnection() as HttpURLConnection
+                    headers.forEach { connection.setRequestProperty(it.key, it.value) }
+                    connection.connect()
+
+                    Log.d(
+                        TAG,
+                        "WebResourceResponse: ${connection.contentType}, ${connection.contentEncoding}, ${connection.inputStream}, ${connection.headerFields}"
+                    )
+
+                    WebResourceResponse(
+                        connection.contentType,
+                        connection.contentEncoding ?: "utf-8",
+                        connection.inputStream
+                    )
+                } catch (e: Exception) {
+                    Log.e(TAG, "WebResourceResponse error: $e")
+                    return super.shouldInterceptRequest(view, request)
+                }
+            }
+
+            override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
+                super.onPageStarted(view, url, favicon)
+                binding.progressBar.visibility = View.VISIBLE
+            }
+
+            override fun onPageFinished(view: WebView?, url: String?) {
+                super.onPageFinished(view, url)
+                binding.progressBar.visibility = View.GONE
+            }
+
+            override fun onReceivedError(
+                view: WebView?,
+                request: WebResourceRequest?,
+                error: WebResourceError?
+            ) {
+                super.onReceivedError(view, request, error)
+                // Handle loading errors
+                binding.progressBar.visibility = View.GONE
+                Toast.makeText(this@MainActivity, R.string.avatar_mode_error, Toast.LENGTH_SHORT)
+                    .show()
+                toggleAvatarMode(false)
+            }
+        }
+
+        webView.webChromeClient = object : WebChromeClient() {
+            override fun onPermissionRequest(request: PermissionRequest) {
+                val requestedResources = request.resources
+                for (resource in requestedResources) {
+                    if (resource == PermissionRequest.RESOURCE_AUDIO_CAPTURE) {
+                        if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                            request.grant(arrayOf(PermissionRequest.RESOURCE_AUDIO_CAPTURE))
+                        } else {
+                            requestPermissions(
+                                arrayOf(android.Manifest.permission.RECORD_AUDIO),
+                                PERMISSIONS_REQUEST_RECORD_AUDIO
+                            )
+                        }
+                        return
+                    }
+                }
+                request.deny()
+            }
+        }
+    }
+
+    private fun loadAvatarPage() {
+        val headers = mapOf(
+            "CF-Access-Client-Id" to avatarClientId,
+            "CF-Access-Client-Secret" to avatarClientSecret
+        )
+        webView.loadUrl(BuildConfig.AVATAR_BASE_URL, headers)
     }
 
     private fun showUserNameDialog(cancelable: Boolean = true) {
@@ -498,28 +668,31 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
     override fun doPositiveClick() {
         userAccount.setName(getUserName(this).toString())
+
+        if (getUIMode(this) == "") {
+            showAvatarModeInfoDialog()
+        }
     }
 
     private fun showAIModelDialog(cancelable: Boolean = true) {
-        AlertDialog.Builder(this)
+        val aiModels = AIModelConfig.entries.toTypedArray()
+        val aiModelNames = aiModels.map { getDisplayName(this, it) }.toTypedArray()
+        val currentIndex = aiModels.indexOfFirst { it.name == getAIModel(this) }
+
+        val builder = AlertDialog.Builder(this)
             .setTitle(getString(R.string.setting_ai_model))
-            .setMessage(getString(R.string.setting_ai_model_message))
-            .setPositiveButton(getString(R.string.setting_ai_model_openai)) { _, _ ->
-                setAIModel(this, AIModelConfig.OPEN_AI)
+            .setSingleChoiceItems(aiModelNames, currentIndex) { dialog, which ->
+                setAIModel(this, aiModels[which])
                 mikuAccount = getMikuAccountFromAIModel()
-                if (::navMenu.isInitialized) {
-                    navMenu.findItem(R.id.setting_language).isVisible = false
-                }
+                (dialog as AlertDialog).getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = true
+                invalidateOptionsMenu()
             }
-            .setNegativeButton(getString(R.string.setting_ai_model_dialogflow)) { _, _ ->
-                setAIModel(this, AIModelConfig.DIALOG_FLOW)
-                mikuAccount = getMikuAccountFromAIModel()
-                if (::navMenu.isInitialized) {
-                    navMenu.findItem(R.id.setting_language).isVisible = true
-                }
-            }
+            .setPositiveButton(R.string.setting_dialog_accept, null)
             .setCancelable(cancelable)
-            .show()
+
+        val dialog = builder.create()
+        dialog.show()
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = cancelable
     }
 
     private fun showFontSizeDialog() {
@@ -594,14 +767,41 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         val inflater = menuInflater
         inflater.inflate(R.menu.menu, menu)
         getAIModel(this)?.let {
-            menu.findItem(R.id.setting_language).isVisible = it == AIModelConfig.DIALOG_FLOW.name
+            menu.findItem(R.id.setting_language).isVisible =
+                it == AIModelConfig.DIALOG_FLOW.name && !isAvatarMode
         }
+
+        menu.findItem(R.id.setting_user_name).isVisible = !isAvatarMode
+        menu.findItem(R.id.setting_ai_model).isVisible = !isAvatarMode
+        menu.findItem(R.id.setting_font_size).isVisible = !isAvatarMode
+        menu.findItem(R.id.clear_message_history).isVisible = !isAvatarMode
+
+        menu.findItem(R.id.avatar_mode_reload).isVisible = isAvatarMode
+
+        menu.add(Menu.NONE, 1, Menu.NONE, R.string.avatar_mode)
+            .setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
+
+        if (isAvatarMode) {
+            menu.findItem(1)
+                .setTitle(R.string.chat_mode)
+                .setIcon(R.drawable.ic_chat)
+        } else {
+            menu.findItem(1)
+                .setTitle(R.string.avatar_mode)
+                .setIcon(R.drawable.ic_cube)
+        }
+
         navMenu = menu
         return true
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
+            1 -> {
+                toggleAvatarMode()
+                true
+            }
+
             R.id.setting_user_name -> {
                 showUserNameDialog()
                 true
@@ -627,6 +827,11 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                 true
             }
 
+            R.id.avatar_mode_reload -> {
+                loadAvatarPage()
+                true
+            }
+
             R.id.setting_official_account -> {
                 openOfficialAccountIntent()
                 true
@@ -635,6 +840,27 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             else -> super.onOptionsItemSelected(item)
         }
     }
+
+    private fun toggleAvatarMode(enable: Boolean = !isAvatarMode) {
+        isAvatarMode = enable
+        setUIMode(this, if (isAvatarMode) UIModeConfig.AVATAR else UIModeConfig.CHAT)
+        invalidateOptionsMenu()
+
+        if (isAvatarMode) {
+            // Switch to Avatar mode
+            binding.chatView.visibility = View.GONE
+            binding.progressBar.visibility = View.VISIBLE
+            webView.visibility = View.VISIBLE
+            loadAvatarPage()
+        } else {
+            // Switch back to chat mode
+            binding.chatView.visibility = View.VISIBLE
+            binding.progressBar.visibility = View.GONE
+            webView.visibility = View.GONE
+            webView.loadUrl("about:blank")
+        }
+    }
+
 
     override fun onClick(v: View) {
         if (binding.chatView.inputText.isEmpty()) {
@@ -771,6 +997,27 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                 binding.chatView.receive(receivedMessage)
             }
             appDatabase.messageDao().insert(messageToEntity(receivedMessage))
+        }
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        when (requestCode) {
+            PERMISSIONS_REQUEST_RECORD_AUDIO -> {
+                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    webView.reload()
+                } else if (grantResults[0] == PackageManager.PERMISSION_DENIED) {
+                    Toast.makeText(
+                        this,
+                        R.string.avatar_mode_needs_record_audio_permission,
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
         }
     }
 
