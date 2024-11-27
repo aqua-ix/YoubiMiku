@@ -49,6 +49,7 @@ import com.aqua_ix.youbimiku.config.LanguageConfig
 import com.aqua_ix.youbimiku.config.SharedPreferenceManager
 import com.aqua_ix.youbimiku.config.UIModeConfig
 import com.aqua_ix.youbimiku.config.getAIModel
+import com.aqua_ix.youbimiku.config.getDisplayName
 import com.aqua_ix.youbimiku.config.getFontSizeType
 import com.aqua_ix.youbimiku.config.getLanguage
 import com.aqua_ix.youbimiku.config.getOpenAIRequestCount
@@ -503,8 +504,15 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         } else {
             userAccount.setName(getUserName(this).toString())
             restoreMessages()
-        }
 
+            if (getUIMode(this) == "") {
+                // 非初回起動ユーザー向けのアバターモード案内ダイアログ
+                showAvatarModeInfoDialog()
+            } else if (getAIModel(this) == "") {
+                // 非初回起動ユーザー向けのAIモデル選択ダイアログ
+                showAIModelDialog(false)
+            }
+        }
 
         val cfReference = firebaseDatabase.getReference("secrets/cloudflare")
         cfReference.addValueEventListener(object : ValueEventListener {
@@ -513,9 +521,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                 avatarClientSecret =
                     dataSnapshot.child("clientSecret").getValue(String::class.java) ?: ""
 
-                if (getUIMode(this@MainActivity) == "") {
-                    showAvatarModeInfoDialog()
-                } else {
+                if (getUIMode(this@MainActivity) != "") {
                     isAvatarMode = getUIMode(this@MainActivity) == UIModeConfig.AVATAR.name
                     toggleAvatarMode(isAvatarMode)
                 }
@@ -540,11 +546,12 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             .setNegativeButton(R.string.avatar_mode_message_cancel) { _, _ ->
                 setUIMode(this, UIModeConfig.CHAT)
 
-                // モデル選択ダイアログを表示
+                // 初回起動時にアバターモードを選択しなかった場合はAIモデル選択ダイアログを表示
                 if (getAIModel(this).equals("")) {
                     showAIModelDialog(false)
                 }
             }
+            .setCancelable(false)
 
         val dialog = builder.create()
         dialog.show()
@@ -661,31 +668,31 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
     override fun doPositiveClick() {
         userAccount.setName(getUserName(this).toString())
-        if (isAvatarMode) {
-            loadAvatarPage()
+
+        if (getUIMode(this) == "") {
+            showAvatarModeInfoDialog()
         }
     }
 
     private fun showAIModelDialog(cancelable: Boolean = true) {
-        AlertDialog.Builder(this)
+        val aiModels = AIModelConfig.entries.toTypedArray()
+        val aiModelNames = aiModels.map { getDisplayName(this, it) }.toTypedArray()
+        val currentIndex = aiModels.indexOfFirst { it.name == getAIModel(this) }
+
+        val builder = AlertDialog.Builder(this)
             .setTitle(getString(R.string.setting_ai_model))
-            .setMessage(getString(R.string.setting_ai_model_message))
-            .setPositiveButton(getString(R.string.setting_ai_model_openai)) { _, _ ->
-                setAIModel(this, AIModelConfig.OPEN_AI)
+            .setSingleChoiceItems(aiModelNames, currentIndex) { dialog, which ->
+                setAIModel(this, aiModels[which])
                 mikuAccount = getMikuAccountFromAIModel()
-                if (::navMenu.isInitialized) {
-                    navMenu.findItem(R.id.setting_language).isVisible = false
-                }
+                (dialog as AlertDialog).getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = true
+                invalidateOptionsMenu()
             }
-            .setNegativeButton(getString(R.string.setting_ai_model_dialogflow)) { _, _ ->
-                setAIModel(this, AIModelConfig.DIALOG_FLOW)
-                mikuAccount = getMikuAccountFromAIModel()
-                if (::navMenu.isInitialized) {
-                    navMenu.findItem(R.id.setting_language).isVisible = true
-                }
-            }
+            .setPositiveButton(R.string.setting_dialog_accept, null)
             .setCancelable(cancelable)
-            .show()
+
+        val dialog = builder.create()
+        dialog.show()
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = cancelable
     }
 
     private fun showFontSizeDialog() {
@@ -760,12 +767,12 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         val inflater = menuInflater
         inflater.inflate(R.menu.menu, menu)
         getAIModel(this)?.let {
-            menu.findItem(R.id.setting_language).isVisible = it == AIModelConfig.DIALOG_FLOW.name
+            menu.findItem(R.id.setting_language).isVisible =
+                it == AIModelConfig.DIALOG_FLOW.name && !isAvatarMode
         }
 
         menu.findItem(R.id.setting_user_name).isVisible = !isAvatarMode
         menu.findItem(R.id.setting_ai_model).isVisible = !isAvatarMode
-        menu.findItem(R.id.setting_language).isVisible = !isAvatarMode
         menu.findItem(R.id.setting_font_size).isVisible = !isAvatarMode
         menu.findItem(R.id.clear_message_history).isVisible = !isAvatarMode
 
