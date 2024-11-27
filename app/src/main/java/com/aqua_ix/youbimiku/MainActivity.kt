@@ -1,9 +1,9 @@
 package com.aqua_ix.youbimiku
 
-import android.annotation.SuppressLint
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
@@ -15,6 +15,8 @@ import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import android.webkit.PermissionRequest
+import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
@@ -111,6 +113,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         }
     private val scope = CoroutineScope(Dispatchers.Default + job + exceptionHandler)
     private var openAITaskJob: Job? = null
+
+    private var PERMISSIONS_REQUEST_RECORD_AUDIO = 0
 
     public override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -532,6 +536,26 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                 toggleAvatarMode()
             }
         }
+
+        webView.webChromeClient = object : WebChromeClient() {
+            override fun onPermissionRequest(request: PermissionRequest) {
+                val requestedResources = request.resources
+                for (resource in requestedResources) {
+                    if (resource == PermissionRequest.RESOURCE_AUDIO_CAPTURE) {
+                        if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                            request.grant(arrayOf(PermissionRequest.RESOURCE_AUDIO_CAPTURE))
+                        } else {
+                            requestPermissions(
+                                arrayOf(android.Manifest.permission.RECORD_AUDIO),
+                                PERMISSIONS_REQUEST_RECORD_AUDIO
+                            )
+                        }
+                        return
+                    }
+                }
+                request.deny()
+            }
+        }
     }
 
     private fun showUserNameDialog(cancelable: Boolean = true) {
@@ -866,6 +890,23 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                 binding.chatView.receive(receivedMessage)
             }
             appDatabase.messageDao().insert(messageToEntity(receivedMessage))
+        }
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        when (requestCode) {
+            PERMISSIONS_REQUEST_RECORD_AUDIO -> {
+                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    webView.reload()
+                } else if (grantResults[0] == PackageManager.PERMISSION_DENIED) {
+                    Toast.makeText(this, R.string.avatar_mode_error, Toast.LENGTH_SHORT).show()
+                }
+            }
         }
     }
 

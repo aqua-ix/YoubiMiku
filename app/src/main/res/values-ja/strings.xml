@@ -57,6 +57,7 @@
 
     <string name="chat_mode">チャットモード</string>
     <string name="avatar_mode">アバターモード</string>
+    <string name="avatar_mode_needs_record_audio_permission">音声入力の許可が必要です</string>
     <string name="avatar_mode_error">アバター画面の読み込みに失敗しました</string>
     <string name="avatar_mode_message">3Dアバターモードが追加されました！右上のアイコンをタップしてお楽しみください。</string>
 </resources>
