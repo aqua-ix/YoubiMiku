@@ -206,10 +206,11 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     }
 
     private fun showActionSheet(message: Message) {
-        val options = arrayOf(
-            getString(R.string.copy_message),
-            getString(R.string.report_message)
-        )
+        val options = if (message.user.getId() == userAccount.getId()) {
+            arrayOf(getString(R.string.copy_message))
+        } else {
+            arrayOf(getString(R.string.copy_message), getString(R.string.report_message))
+        }
         AlertDialog.Builder(this)
             .setItems(options) { _, which ->
                 when (which) {
