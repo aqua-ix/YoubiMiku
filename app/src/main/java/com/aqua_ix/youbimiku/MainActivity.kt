@@ -8,6 +8,8 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.Gravity
 import android.view.Menu
@@ -45,13 +47,16 @@ import com.aqua_ix.youbimiku.config.FontSizeConfig
 import com.aqua_ix.youbimiku.config.Key
 import com.aqua_ix.youbimiku.config.LanguageConfig
 import com.aqua_ix.youbimiku.config.SharedPreferenceManager
+import com.aqua_ix.youbimiku.config.UIModeConfig
 import com.aqua_ix.youbimiku.config.getAIModel
 import com.aqua_ix.youbimiku.config.getFontSizeType
 import com.aqua_ix.youbimiku.config.getLanguage
 import com.aqua_ix.youbimiku.config.getOpenAIRequestCount
+import com.aqua_ix.youbimiku.config.getUIMode
 import com.aqua_ix.youbimiku.config.setAIModel
 import com.aqua_ix.youbimiku.config.setFontSize
 import com.aqua_ix.youbimiku.config.setOpenAIRequestCount
+import com.aqua_ix.youbimiku.config.setUIMode
 import com.aqua_ix.youbimiku.database.AppDatabase
 import com.aqua_ix.youbimiku.database.entityToMessage
 import com.aqua_ix.youbimiku.database.messageToEntity
@@ -496,9 +501,38 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             restoreMessages()
         }
 
-        if (getAIModel(this).equals("")) {
-            showAIModelDialog(false)
+
+        if (getUIMode(this) == "") {
+            showAvatarModeInfoDialog()
+        } else {
+            isAvatarMode = getUIMode(this) == UIModeConfig.AVATAR.name
+            Handler(Looper.getMainLooper()).postDelayed({
+                toggleAvatarMode(isAvatarMode)
+            }, 300) // 起動直後にWebViewをロードするとクラッシュするため遅延させる
         }
+    }
+
+    private fun showAvatarModeInfoDialog() {
+        val builder = AlertDialog.Builder(this)
+            .setTitle(getString(R.string.avatar_mode_message_title))
+            .setMessage(getString(R.string.avatar_mode_message_text))
+            .setPositiveButton(R.string.avatar_mode_message_accept) { _, _ ->
+                toggleAvatarMode(true)
+
+                // 初回起動時にアバターモードを選択した場合はチャットモードをOpenAIに設定
+                setAIModel(this, AIModelConfig.OPEN_AI)
+            }
+            .setNegativeButton(R.string.avatar_mode_message_cancel) { _, _ ->
+                setUIMode(this, UIModeConfig.CHAT)
+
+                // モデル選択ダイアログを表示
+                if (getAIModel(this).equals("")) {
+                    showAIModelDialog(false)
+                }
+            }
+
+        val dialog = builder.create()
+        dialog.show()
     }
 
     private fun setupWebView() {
@@ -533,7 +567,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                 binding.progressBar.visibility = View.GONE
                 Toast.makeText(this@MainActivity, R.string.avatar_mode_error, Toast.LENGTH_SHORT)
                     .show()
-                toggleAvatarMode()
+                toggleAvatarMode(false)
             }
         }
 
@@ -735,22 +769,23 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         }
     }
 
-    private fun toggleAvatarMode() {
-        isAvatarMode = !isAvatarMode
+    private fun toggleAvatarMode(enable: Boolean = !isAvatarMode) {
+        isAvatarMode = enable
+        setUIMode(this, if (isAvatarMode) UIModeConfig.AVATAR else UIModeConfig.CHAT)
         invalidateOptionsMenu()
 
         if (isAvatarMode) {
             // Switch to Avatar mode
             binding.chatView.visibility = View.GONE
-            webView.visibility = View.VISIBLE
             binding.progressBar.visibility = View.VISIBLE
+            webView.visibility = View.VISIBLE
             webView.loadUrl(BuildConfig.AVATAR_BASE_URL)
         } else {
             // Switch back to chat mode
             binding.chatView.visibility = View.VISIBLE
+            binding.progressBar.visibility = View.GONE
             webView.visibility = View.GONE
             webView.loadUrl("about:blank")
-            binding.progressBar.visibility = View.GONE
         }
     }
 

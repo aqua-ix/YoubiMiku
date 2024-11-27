@@ -60,5 +60,8 @@
     <string name="avatar_mode">Avatar Mode</string>
     <string name="avatar_mode_needs_record_audio_permission">Please allow permission to talk by voice</string>
     <string name="avatar_mode_error">Failed to load avatar page</string>
-    <string name="avatar_mode_message">You can now talk to Hatsune Miku in 3D avatar mode!\n\nYou can change to avatar mode from the button on the top right of the screen.</string>
+    <string name="avatar_mode_message_title">About Avatar Mode</string>
+    <string name="avatar_mode_message_text">You can now talk to Hatsune Miku in 3D avatar mode! (You can change the mode from the button on the top right of the screen.)</string>
+    <string name="avatar_mode_message_accept">Try Avatar Mode</string>
+    <string name="avatar_mode_message_cancel">Not Now</string>
 </resources>
