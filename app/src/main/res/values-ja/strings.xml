@@ -22,7 +22,7 @@
     <string name="setting_ai_model_dialogflow">標準モデル</string>
     <string name="setting_ai_model_openai">GPTモデル</string>
 
-    <string name="setting_font_size">文字サイズ</string>
+    <string name="setting_font_size">文字サイズの設定</string>
     <string name="setting_font_xsmall">極小</string>
     <string name="setting_font_small">小</string>
     <string name="setting_font_medium">中</string>
@@ -34,7 +34,7 @@
 
     <string name="clear_message_history">履歴を消去</string>
 
-    <string name="official_account">公式アカウント</string>
+    <string name="official_account">公式Xアカウント</string>
     <string name="official_account_error">アプリが見つかりません</string>
 
     <string name="setting_submit_review">応援する</string>
