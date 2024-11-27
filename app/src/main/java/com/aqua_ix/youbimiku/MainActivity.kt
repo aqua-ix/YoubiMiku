@@ -519,7 +519,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                 binding.progressBar.visibility = View.GONE
             }
 
-            @SuppressLint("NewApi")
             override fun onReceivedError(
                 view: WebView?,
                 request: WebResourceRequest?,
