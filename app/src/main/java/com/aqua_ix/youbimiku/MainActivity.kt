@@ -769,6 +769,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         menu.findItem(R.id.setting_font_size).isVisible = !isAvatarMode
         menu.findItem(R.id.clear_message_history).isVisible = !isAvatarMode
 
+        menu.findItem(R.id.avatar_mode_reload).isVisible = isAvatarMode
+
         menu.add(Menu.NONE, 1, Menu.NONE, R.string.avatar_mode)
             .setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
 
@@ -815,6 +817,11 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
             R.id.clear_message_history -> {
                 clearMessageHistory()
+                true
+            }
+
+            R.id.avatar_mode_reload -> {
+                loadAvatarPage()
                 true
             }
 

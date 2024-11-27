@@ -64,4 +64,5 @@
     <string name="avatar_mode_message_text">You can now talk to Hatsune Miku in 3D avatar mode! (You can change the mode from the button on the top right of the screen.)</string>
     <string name="avatar_mode_message_accept">Try Avatar Mode</string>
     <string name="avatar_mode_message_cancel">Not Now</string>
+    <string name="avatar_mode_reload">Reload</string>
 </resources>
