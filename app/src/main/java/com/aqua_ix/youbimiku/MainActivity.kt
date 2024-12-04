@@ -845,6 +845,11 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     }
 
     private fun toggleAvatarMode(enable: Boolean = !isAvatarMode) {
+        if (::avatarClientId.isInitialized.not() || ::avatarClientSecret.isInitialized.not()) {
+            Toast.makeText(this, R.string.avatar_mode_error, Toast.LENGTH_SHORT).show()
+            return
+        }
+
         isAvatarMode = enable
         setUIMode(this, if (isAvatarMode) UIModeConfig.AVATAR else UIModeConfig.CHAT)
         invalidateOptionsMenu()
