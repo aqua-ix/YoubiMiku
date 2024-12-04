@@ -676,7 +676,9 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     }
 
     private fun showAIModelDialog(cancelable: Boolean = true) {
-        val aiModels = AIModelConfig.entries.toTypedArray()
+        val aiModels = AIModelConfig.entries.filter {
+            it != AIModelConfig.OPEN_AI || remoteConfig.getBoolean(RemoteConfigKey.OPENAI_ENABLED)
+        }.toTypedArray()
         val aiModelNames = aiModels.map { getDisplayName(this, it) }.toTypedArray()
         val currentIndex = aiModels.indexOfFirst { it.name == getAIModel(this) }
 
