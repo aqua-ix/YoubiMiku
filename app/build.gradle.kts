@@ -112,8 +112,7 @@ dependencies {
     implementation("com.google.android.gms:play-services-ads-identifier:18.1.0")
     implementation("com.google.android.gms:play-services-basement:18.4.0")
     implementation(files("libs/imobileSdkAds.jar"))
-    implementation("com.ironsource.sdk:mediationsdk:7.9.0")
-    implementation("com.ironsource:adqualitysdk:7.19.2")
+    implementation("com.ironsource.sdk:mediationsdk:8.12.0")
 }
 
 secrets {
