@@ -62,5 +62,5 @@
     <string name="avatar_mode_message_text">3Dアバターの初音ミクと会話できる機能が追加されました！（右上のアイコンをタップしてモードを切り替えることができます。）</string>
     <string name="avatar_mode_message_accept">使ってみる</string>
     <string name="avatar_mode_message_cancel">閉じる</string>
-    <string name="avatar_mode_reload">リロード</string>
+    <string name="avatar_mode_reload">再読み込み</string>
 </resources>
