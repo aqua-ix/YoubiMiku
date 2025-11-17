@@ -27,6 +27,10 @@ import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updateLayoutParams
+import androidx.core.view.updatePadding
 import androidx.room.Room
 import com.aallam.openai.api.chat.ChatCompletionRequest
 import com.aallam.openai.api.chat.ChatMessage
@@ -131,6 +135,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         binding = ActivityMainBinding.inflate(layoutInflater)
         val view = binding.root
         setContentView(view)
+        adjustLayoutForEdgeToEdge(view)
 
         detectIntent = DetectIntent(this, getDialogFlowSession())
 
@@ -142,6 +147,33 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         setupChat()
         setupWebView()
         setupAdNetwork()
+    }
+
+    private fun adjustLayoutForEdgeToEdge(view: View) {
+        // https://developer.android.com/develop/ui/views/layout/edge-to-edge
+        ViewCompat.setOnApplyWindowInsetsListener(view) { v, windowInsets ->
+            val insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
+            v.updateLayoutParams<ViewGroup.MarginLayoutParams> {
+                leftMargin = insets.left
+                bottomMargin = insets.bottom
+                rightMargin = insets.right
+            }
+            WindowInsetsCompat.CONSUMED
+        }
+
+        ViewCompat.setOnApplyWindowInsetsListener(view) { v, insets ->
+            val bars = insets.getInsets(
+                WindowInsetsCompat.Type.systemBars()
+                        or WindowInsetsCompat.Type.displayCutout()
+            )
+            v.updatePadding(
+                left = bars.left,
+                top = bars.top,
+                right = bars.right,
+                bottom = bars.bottom,
+            )
+            WindowInsetsCompat.CONSUMED
+        }
     }
 
     private fun initRemoteConfig() {
