@@ -620,6 +620,14 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                 request: WebResourceRequest?,
                 error: WebResourceError?
             ) {
+                if (request?.url?.host.equals("static.cloudflareinsights.com")) {
+                    // 計測用なので無視する
+                    Log.w(TAG, "Ignore loading error for insights")
+                    return
+                }
+                Log.e(
+                    TAG, "Avatar mode loading error: ${error?.errorCode}, ${error?.description}"
+                )
                 super.onReceivedError(view, request, error)
                 // Handle loading errors
                 binding.progressBar.visibility = View.GONE
@@ -846,6 +854,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
     private fun toggleAvatarMode(enable: Boolean = !isAvatarMode) {
         if (::avatarClientId.isInitialized.not() || ::avatarClientSecret.isInitialized.not()) {
+            Log.e(TAG, "Avatar mode initialization error")
             Toast.makeText(this, R.string.avatar_mode_error, Toast.LENGTH_SHORT).show()
             return
         }
