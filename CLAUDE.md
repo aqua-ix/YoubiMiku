@@ -67,6 +67,12 @@ Use Windows-side `gradlew.bat` from WSL to deploy to a connected device.
 cmd.exe /c "cd /d D:\\Development\\Project\\YoubiMiku && gradlew.bat installAdsDebug"
 ```
 
+To launch the app after installation:
+
+```bash
+/mnt/c/Users/souic/AppData/Local/Android/Sdk/platform-tools/adb.exe shell monkey -p comviewaquahp.google.sites.youbimiku -c android.intent.category.LAUNCHER 1
+```
+
 If installation fails with `INSTALL_FAILED_UPDATE_INCOMPATIBLE` due to signature mismatch, uninstall the existing app first:
 
 ```bash
