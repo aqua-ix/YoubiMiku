@@ -55,6 +55,28 @@ Room ORM with a single `MessageEntity` table. Two schema versions with auto-migr
 
 Two ad networks (iMobile, IronSource) switchable via RemoteConfig. The `ads` flavor includes ad SDKs; `noAds` flavor excludes them. Interstitial ads trigger after a configurable message count.
 
+## Deploy to Device (WSL)
+
+Use Windows-side `gradlew.bat` from WSL to deploy to a connected device.
+
+```bash
+# Check device connection
+/mnt/c/Users/souic/AppData/Local/Android/Sdk/platform-tools/adb.exe devices
+
+# Build and install
+cmd.exe /c "cd /d D:\\Development\\Project\\YoubiMiku && gradlew.bat installAdsDebug"
+```
+
+If installation fails with `INSTALL_FAILED_UPDATE_INCOMPATIBLE` due to signature mismatch, uninstall the existing app first:
+
+```bash
+/mnt/c/Users/souic/AppData/Local/Android/Sdk/platform-tools/adb.exe uninstall comviewaquahp.google.sites.youbimiku
+```
+
 ## CI/CD
 
-GitHub Actions (`.github/workflows/android.yml`) runs on push/PR to master: build, lint, unit tests, and instrumentation tests (API 29 emulator). A custom setup action (`.github/actions/setup/`) configures JDK 17 and decodes secret files from GitHub Secrets.
+GitHub Actions (`.github/workflows/android.yml`) runs on push/PR to main: build, lint, unit tests, and instrumentation tests (API 29 emulator). A custom setup action (`.github/actions/setup/`) configures JDK 17 and decodes secret files from GitHub Secrets.
+
+## Maintaining This File
+
+When making changes that affect build configuration, dependencies, architecture, or project conventions, update the relevant sections of this file to keep it accurate. Examples: updating SDK versions, adding new modules or packages, changing build flavors, modifying CI workflows.
