@@ -383,6 +383,9 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
                 override fun onAdLoadFailed(error: IronSourceError) {
                     Log.e(TAG, "IronSource banner load failed: $error")
+                    val mlp = binding.chatView.layoutParams as ViewGroup.MarginLayoutParams
+                    mlp.topMargin = 0
+                    binding.chatView.requestLayout()
                 }
 
                 override fun onAdClicked(adInfo: AdInfo) {
