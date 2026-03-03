@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id="@+id/setting_user_name"
+        android:title="@string/setting_user_name"/>
+    <item android:id="@+id/setting_ai_model"
+        android:title="@string/setting_ai_model"/>
+    <item android:id="@+id/setting_font_size"
+        android:title="@string/setting_font_size"/>
+    <item android:id="@+id/setting_language"
+        android:title="@string/setting_language"/>
+    <item android:id="@+id/clear_message_history"
+        android:title="@string/clear_message_history"/>
+    <item
+        android:id="@+id/avatar_mode_reload"
+        android:title="@string/avatar_mode_reload" />
+    <item android:id="@+id/setting_official_account"
+        android:title="@string/official_account"/>
+</menu>

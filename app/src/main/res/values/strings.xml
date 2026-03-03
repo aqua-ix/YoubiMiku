@@ -1,0 +1,67 @@
+<resources>
+    <string name="app_name">YoubiMiku</string>
+    <string name="miku_name">Hatsune Miku</string>
+
+    <string name="openai_system_prompt">Please enjoy the conversation as Hatsune Miku. The user\'s name is %1$s.</string>
+    <string name="miku_nice_to_meet_you">Nice to meet you, %1$s!</string>
+    <string name="input_text_hint">"Message…"</string>
+
+    <string name="ad_placeholder">Ads</string>
+
+    <string name="message_error">An error has occurred. Please check your network connection.</string>
+    <string name="message_error_openai">Sorry, GPT model is not currently available. The standard model speaks for me.</string>
+
+    <string name="setting_user_name">Your Name</string>
+    <string name="setting_name_title">How can I call you?</string>
+    <string name="setting_name_hint">Fill Name</string>
+    <string name="setting_user_name_empty">Please enter your username</string>
+    <string name="setting_dialog_accept">OK</string>
+    <string name="setting_dialog_cancel">Cancel</string>
+
+    <string name="setting_ai_model">AI Model</string>
+    <string name="setting_ai_model_dialogflow">Standard Model</string>
+    <string name="setting_ai_model_openai">GPT Model</string>
+
+    <string name="setting_font_size">Font Size</string>
+    <string name="setting_font_xsmall">Extra Small</string>
+    <string name="setting_font_small">Small</string>
+    <string name="setting_font_medium">Medium</string>
+    <string name="setting_font_large">Large</string>
+
+    <string name="setting_language">Language</string>
+    <string name="setting_language_jp">Japanese</string>
+    <string name="setting_language_en">English</string>
+
+    <string name="clear_message_history">Clear Chat History</string>
+
+    <string name="official_account">X Account</string>
+    <string name="official_account_error">App not found</string>
+
+    <string name="setting_submit_review">Submit Review</string>
+    <string name="setting_submit_review_error">Please Install Play Store</string>
+    <string name="setting_send_feedback">Send Opinion</string>
+    <string name="setting_send_feedback_error">Please Install Mail App</string>
+    <string name="feedback_email_subject">[YoubiMiku] FeedBack</string>
+    <string name="feedback_email_address" translatable="false">aquapinfo@gmail.com</string>
+    <string name="feedback_email_inquiry">Inquiry: </string>
+
+    <string name="copy_message">Copy</string>
+    <string name="message_copied">Copied</string>
+    <string name="report_message">Report</string>
+    <string name="report_message_reason">Reason</string>
+    <string name="report_message_reason_required">Please enter a reason</string>
+    <string name="report_message_send">Send</string>
+    <string name="report_message_cancel">Cancel</string>
+    <string name="message_reported">Reported</string>
+    <string name="message_reported_error">Report failed</string>
+
+    <string name="chat_mode">Chat Mode</string>
+    <string name="avatar_mode">Avatar Mode</string>
+    <string name="avatar_mode_needs_record_audio_permission">Please allow permission to talk by voice</string>
+    <string name="avatar_mode_error">Failed to load avatar page</string>
+    <string name="avatar_mode_message_title">About Avatar Mode</string>
+    <string name="avatar_mode_message_text">You can now talk to Hatsune Miku in 3D avatar mode! (You can change the mode from the button on the top right of the screen.)</string>
+    <string name="avatar_mode_message_accept">Try Avatar Mode</string>
+    <string name="avatar_mode_message_cancel">Not Now</string>
+    <string name="avatar_mode_reload">Reload</string>
+</resources>

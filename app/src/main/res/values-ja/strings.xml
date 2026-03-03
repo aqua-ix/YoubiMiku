@@ -1,0 +1,66 @@
+<resources>
+    <string name="app_name">ユビキタ初音ミク</string>
+    <string name="miku_name">初音ミク</string>
+
+    <string name="openai_system_prompt">初音ミクとして会話を楽しんでください。敬語は使わないでください。ユーザーの名前は「%1$s」です。</string>
+    <string name="miku_nice_to_meet_you">%1$sさん！よろしくお願いします。</string>
+    <string name="input_text_hint">話しかける</string>
+
+    <string name="ad_placeholder">広告</string>
+
+    <string name="message_error">エラーが発生しました。ネットワークに繋がっていないかもしれません。</string>
+    <string name="message_error_openai">申し訳ありません、GPTモデルは現在利用できません。しばらくは標準モデルとの会話をお楽しみください。</string>
+
+    <string name="setting_dialog_accept">決定</string>
+    <string name="setting_dialog_cancel">キャンセル</string>
+    <string name="setting_user_name">あなたの名前</string>
+    <string name="setting_name_title">お名前を教えてください</string>
+    <string name="setting_name_hint">名前を入力</string>
+    <string name="setting_user_name_empty">ユーザー名を入力してください。</string>
+
+    <string name="setting_ai_model">AIモデルの選択</string>
+    <string name="setting_ai_model_dialogflow">標準モデル</string>
+    <string name="setting_ai_model_openai">GPTモデル</string>
+
+    <string name="setting_font_size">文字サイズの設定</string>
+    <string name="setting_font_xsmall">極小</string>
+    <string name="setting_font_small">小</string>
+    <string name="setting_font_medium">中</string>
+    <string name="setting_font_large">大</string>
+
+    <string name="setting_language">言語を選択</string>
+    <string name="setting_language_jp">日本語</string>
+    <string name="setting_language_en">英語</string>
+
+    <string name="clear_message_history">履歴を消去</string>
+
+    <string name="official_account">公式Xアカウント</string>
+    <string name="official_account_error">アプリが見つかりません</string>
+
+    <string name="setting_submit_review">応援する</string>
+    <string name="setting_submit_review_error">PlayStoreが見つかりません</string>
+    <string name="setting_send_feedback">意見を送る</string>
+    <string name="setting_send_feedback_error">メールアプリが見つかりません</string>
+    <string name="feedback_email_subject">"[ユビキタ初音ミク] フィードバック"</string>
+    <string name="feedback_email_inquiry">本文: </string>
+
+    <string name="copy_message">コピー</string>
+    <string name="message_copied">コピーしました</string>
+    <string name="report_message">問題を報告</string>
+    <string name="report_message_reason">理由</string>
+    <string name="report_message_reason_required">理由を入力してください</string>
+    <string name="report_message_send">送信</string>
+    <string name="report_message_cancel">キャンセル</string>
+    <string name="message_reported">問題を報告しました</string>
+    <string name="message_reported_error">報告に失敗しました</string>
+
+    <string name="chat_mode">チャットモード</string>
+    <string name="avatar_mode">アバターモード</string>
+    <string name="avatar_mode_needs_record_audio_permission">音声入力の許可が必要です</string>
+    <string name="avatar_mode_error">アバター画面の読み込みに失敗しました</string>
+    <string name="avatar_mode_message_title">アバターモードが追加されました</string>
+    <string name="avatar_mode_message_text">3Dアバターの初音ミクと会話できる機能が追加されました！（右上のアイコンをタップしてモードを切り替えることができます。）</string>
+    <string name="avatar_mode_message_accept">使ってみる</string>
+    <string name="avatar_mode_message_cancel">閉じる</string>
+    <string name="avatar_mode_reload">再読み込み</string>
+</resources>
