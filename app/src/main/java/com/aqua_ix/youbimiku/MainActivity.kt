@@ -330,12 +330,14 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                 Log.d(TAG, "ImobileSdkAd($IMOBILE_BANNER_SID) onAdReadyCompleted")
                 imobileBannerLayout.visibility = View.VISIBLE
                 mlp.topMargin = imobileBannerLayout.height
+                binding.chatView.requestLayout()
             }
 
             override fun onFailed(reason: FailNotificationReason) {
                 Log.d(TAG, "ImobileSdkAd($IMOBILE_BANNER_SID) onFailed: $reason")
                 imobileBannerLayout.visibility = View.INVISIBLE
                 mlp.topMargin = 0
+                binding.chatView.requestLayout()
             }
         })
     }
@@ -372,6 +374,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                     Log.d(TAG, "IronSource banner loaded: $adInfo")
                     val mlp = binding.chatView.layoutParams as ViewGroup.MarginLayoutParams
                     mlp.topMargin = ironSourceBannerLayout.height
+                    binding.chatView.requestLayout()
                 }
 
                 override fun onAdLoadFailed(error: IronSourceError) {
