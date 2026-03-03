@@ -130,6 +130,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     private var openAITaskJob: Job? = null
 
     private var PERMISSIONS_REQUEST_RECORD_AUDIO = 0
+    private var actionBarSize = 0
 
     public override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -138,6 +139,9 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         val view = binding.root
         setContentView(view)
         setSupportActionBar(binding.toolbar)
+        val tv = android.util.TypedValue()
+        theme.resolveAttribute(android.R.attr.actionBarSize, tv, true)
+        actionBarSize = android.util.TypedValue.complexToDimensionPixelSize(tv.data, resources.displayMetrics)
         handleWindowInsets(view)
 
         detectIntent = DetectIntent(this, getDialogFlowSession())
@@ -317,7 +321,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                         or WindowInsetsCompat.Type.displayCutout()
             )
             v.updateLayoutParams<ViewGroup.MarginLayoutParams> {
-                topMargin = insets.top + binding.toolbar.height
+                topMargin = insets.top + actionBarSize
             }
             windowInsets
         }
@@ -408,7 +412,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                             or WindowInsetsCompat.Type.displayCutout()
                 )
                 v.updateLayoutParams<ViewGroup.MarginLayoutParams> {
-                    topMargin = insets.top + binding.toolbar.height
+                    topMargin = insets.top + actionBarSize
                 }
                 windowInsets
             }
