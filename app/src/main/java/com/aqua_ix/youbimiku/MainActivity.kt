@@ -132,8 +132,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     private var PERMISSIONS_REQUEST_RECORD_AUDIO = 0
 
     public override fun onCreate(savedInstanceState: Bundle?) {
-        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
         binding = ActivityMainBinding.inflate(layoutInflater)
         val view = binding.root
         setContentView(view)
