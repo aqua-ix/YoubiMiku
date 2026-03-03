@@ -307,14 +307,20 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         ImobileSdkAd.start(IMOBILE_BANNER_SID)
 
         val imobileBannerLayout = FrameLayout(this)
-        val imobileBannerLayoutParam: FrameLayout.LayoutParams =
-            FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.WRAP_CONTENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT
-            )
+        val imobileBannerLayoutParam = FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT)
         imobileBannerLayoutParam.gravity = Gravity.TOP or Gravity.CENTER
         imobileBannerLayout.visibility = View.INVISIBLE
         addContentView(imobileBannerLayout, imobileBannerLayoutParam)
+        ViewCompat.setOnApplyWindowInsetsListener(imobileBannerLayout) { v, windowInsets ->
+            val insets = windowInsets.getInsets(
+                WindowInsetsCompat.Type.systemBars()
+                        or WindowInsetsCompat.Type.displayCutout()
+            )
+            v.updateLayoutParams<ViewGroup.MarginLayoutParams> {
+                topMargin = insets.top + binding.toolbar.height
+            }
+            windowInsets
+        }
         ImobileSdkAd.showAd(this, IMOBILE_BANNER_SID, imobileBannerLayout, true)
 
         val mlp = binding.chatView.layoutParams as ViewGroup.MarginLayoutParams
@@ -389,12 +395,20 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                 }
             }
 
-            val layoutParams = FrameLayout.LayoutParams(
-                WRAP_CONTENT, WRAP_CONTENT
-            ).apply {
+            val layoutParams = FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
                 gravity = Gravity.TOP or Gravity.CENTER
             }
             addContentView(ironSourceBannerLayout, layoutParams)
+            ViewCompat.setOnApplyWindowInsetsListener(ironSourceBannerLayout) { v, windowInsets ->
+                val insets = windowInsets.getInsets(
+                    WindowInsetsCompat.Type.systemBars()
+                            or WindowInsetsCompat.Type.displayCutout()
+                )
+                v.updateLayoutParams<ViewGroup.MarginLayoutParams> {
+                    topMargin = insets.top + binding.toolbar.height
+                }
+                windowInsets
+            }
             if (BUILD_TYPE == "debug") {
                 IntegrationHelper.validateIntegration(context);
             }
