@@ -25,8 +25,13 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
 import android.widget.Toast
+import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updateLayoutParams
+import androidx.core.view.updatePadding
 import androidx.room.Room
 import com.aallam.openai.api.chat.ChatCompletionRequest
 import com.aallam.openai.api.chat.ChatMessage
@@ -127,10 +132,13 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     private var PERMISSIONS_REQUEST_RECORD_AUDIO = 0
 
     public override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         val view = binding.root
         setContentView(view)
+        setSupportActionBar(binding.toolbar)
+        handleWindowInsets(view)
 
         detectIntent = DetectIntent(this, getDialogFlowSession())
 
@@ -142,6 +150,22 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         setupChat()
         setupWebView()
         setupAdNetwork()
+    }
+
+    private fun handleWindowInsets(view: View) {
+        ViewCompat.setOnApplyWindowInsetsListener(view) { v, windowInsets ->
+            val navBarInsets = windowInsets.getInsets(
+                WindowInsetsCompat.Type.navigationBars()
+                        or WindowInsetsCompat.Type.displayCutout()
+            )
+            val imeInsets = windowInsets.getInsets(WindowInsetsCompat.Type.ime())
+            v.updatePadding(
+                left = navBarInsets.left,
+                right = navBarInsets.right,
+                bottom = maxOf(navBarInsets.bottom, imeInsets.bottom),
+            )
+            windowInsets
+        }
     }
 
     private fun initRemoteConfig() {
