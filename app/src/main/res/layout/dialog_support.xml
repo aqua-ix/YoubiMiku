@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="24dp">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/support_title"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:layout_marginBottom="8dp" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/support_description"
+        android:textSize="14sp"
+        android:gravity="center"
+        android:layout_marginBottom="20dp" />
+
+    <Button
+        android:id="@+id/btn_patreon"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:text="@string/support_patreon"
+        android:backgroundTint="#FF424D"
+        android:textColor="#FFFFFF"
+        android:layout_marginBottom="10dp"
+        android:visibility="gone" />
+
+    <Button
+        android:id="@+id/btn_kofi"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:text="@string/support_kofi"
+        android:backgroundTint="#29ABE0"
+        android:textColor="#FFFFFF"
+        android:layout_marginBottom="10dp"
+        android:visibility="gone" />
+
+    <Button
+        android:id="@+id/btn_github_sponsors"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:text="@string/support_github_sponsors"
+        android:backgroundTint="#EA4AAA"
+        android:textColor="#FFFFFF"
+        android:layout_marginBottom="4dp"
+        android:visibility="gone" />
+
+</LinearLayout>

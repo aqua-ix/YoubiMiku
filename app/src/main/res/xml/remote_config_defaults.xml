@@ -20,4 +20,20 @@
         <key>openai_enabled</key>
         <value>true</value>
     </entry>
+    <entry>
+        <key>patreon_url</key>
+        <value></value>
+    </entry>
+    <entry>
+        <key>kofi_url</key>
+        <value></value>
+    </entry>
+    <entry>
+        <key>github_sponsors_url</key>
+        <value></value>
+    </entry>
+    <entry>
+        <key>support_display_request_times</key>
+        <value>50</value>
+    </entry>
 </defaultsMap>

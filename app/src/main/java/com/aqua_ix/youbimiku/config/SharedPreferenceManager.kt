@@ -37,5 +37,6 @@ enum class Key {
     LAUNCH_COUNT,
     AI_MODEL,
     OPENAI_REQUEST_COUNT,
+    SUPPORT_REQUEST_COUNT,
     UI_MODE
 }

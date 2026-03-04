@@ -64,4 +64,13 @@
     <string name="avatar_mode_message_accept">Try Avatar Mode</string>
     <string name="avatar_mode_message_cancel">Not Now</string>
     <string name="avatar_mode_reload">Reload</string>
+
+    <string name="support_menu_title">Support Developer</string>
+    <string name="support_title">&#9829; Support Miku!</string>
+    <string name="support_description">If you enjoy this app, please consider supporting development!</string>
+    <string name="support_patreon">Support on Patreon</string>
+    <string name="support_kofi">Buy me a Ko-fi</string>
+    <string name="support_github_sponsors">Sponsor on GitHub</string>
+    <string name="support_later">Later</string>
+    <string name="support_url_error">Browser not found</string>
 </resources>

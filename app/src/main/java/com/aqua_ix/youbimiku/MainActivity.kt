@@ -58,10 +58,12 @@ import com.aqua_ix.youbimiku.config.getDisplayName
 import com.aqua_ix.youbimiku.config.getFontSizeType
 import com.aqua_ix.youbimiku.config.getLanguage
 import com.aqua_ix.youbimiku.config.getOpenAIRequestCount
+import com.aqua_ix.youbimiku.config.getSupportRequestCount
 import com.aqua_ix.youbimiku.config.getUIMode
 import com.aqua_ix.youbimiku.config.setAIModel
 import com.aqua_ix.youbimiku.config.setFontSize
 import com.aqua_ix.youbimiku.config.setOpenAIRequestCount
+import com.aqua_ix.youbimiku.config.setSupportRequestCount
 import com.aqua_ix.youbimiku.config.setUIMode
 import com.aqua_ix.youbimiku.database.AppDatabase
 import com.aqua_ix.youbimiku.database.entityToMessage
@@ -822,6 +824,50 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         }
     }
 
+    private fun openUrl(url: String) {
+        try {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+            startActivity(intent)
+        } catch (e: Exception) {
+            Toast.makeText(this, getString(R.string.support_url_error), Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun showSupportDialog(requireUrls: Boolean = false) {
+        val patreonUrl = remoteConfig.getString(RemoteConfigKey.PATREON_URL)
+        val kofiUrl = remoteConfig.getString(RemoteConfigKey.KOFI_URL)
+        val githubSponsorsUrl = remoteConfig.getString(RemoteConfigKey.GITHUB_SPONSORS_URL)
+
+        if (requireUrls && patreonUrl.isEmpty() && kofiUrl.isEmpty() && githubSponsorsUrl.isEmpty()) return
+
+        val view = layoutInflater.inflate(R.layout.dialog_support, null)
+        val dialog = AlertDialog.Builder(this)
+            .setView(view)
+            .setNegativeButton(R.string.support_later, null)
+            .create()
+
+        view.findViewById<android.widget.Button>(R.id.btn_patreon).apply {
+            if (patreonUrl.isNotEmpty()) {
+                visibility = View.VISIBLE
+                setOnClickListener { openUrl(patreonUrl); dialog.dismiss() }
+            }
+        }
+        view.findViewById<android.widget.Button>(R.id.btn_kofi).apply {
+            if (kofiUrl.isNotEmpty()) {
+                visibility = View.VISIBLE
+                setOnClickListener { openUrl(kofiUrl); dialog.dismiss() }
+            }
+        }
+        view.findViewById<android.widget.Button>(R.id.btn_github_sponsors).apply {
+            if (githubSponsorsUrl.isNotEmpty()) {
+                visibility = View.VISIBLE
+                setOnClickListener { openUrl(githubSponsorsUrl); dialog.dismiss() }
+            }
+        }
+
+        dialog.show()
+    }
+
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         val inflater = menuInflater
         inflater.inflate(R.menu.menu, menu)
@@ -893,6 +939,11 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
             R.id.setting_official_account -> {
                 openOfficialAccountIntent()
+                true
+            }
+
+            R.id.support_developer -> {
+                showSupportDialog()
                 true
             }
 
@@ -988,6 +1039,15 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                     setOpenAIRequestCount(applicationContext, 0)
                 }
             }
+        }
+
+        val supportCount = getSupportRequestCount(applicationContext) + 1
+        setSupportRequestCount(applicationContext, supportCount)
+        val supportTimes = remoteConfig.getDouble(RemoteConfigKey.SUPPORT_DISPLAY_REQUEST_TIMES).toInt()
+        if (supportTimes > 0 && supportCount >= supportTimes) {
+            Log.d(TAG, "Support display request count: $supportCount")
+            setSupportRequestCount(applicationContext, 0)
+            showSupportDialog(requireUrls = true)
         }
     }
 
