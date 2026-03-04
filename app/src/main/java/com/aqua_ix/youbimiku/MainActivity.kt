@@ -25,8 +25,13 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
 import android.widget.Toast
+import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updateLayoutParams
+import androidx.core.view.updatePadding
 import androidx.room.Room
 import com.aallam.openai.api.chat.ChatCompletionRequest
 import com.aallam.openai.api.chat.ChatMessage
@@ -125,12 +130,19 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     private var openAITaskJob: Job? = null
 
     private var PERMISSIONS_REQUEST_RECORD_AUDIO = 0
+    private var actionBarSize = 0
 
     public override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
         binding = ActivityMainBinding.inflate(layoutInflater)
         val view = binding.root
         setContentView(view)
+        setSupportActionBar(binding.toolbar)
+        val tv = android.util.TypedValue()
+        theme.resolveAttribute(android.R.attr.actionBarSize, tv, true)
+        actionBarSize = android.util.TypedValue.complexToDimensionPixelSize(tv.data, resources.displayMetrics)
+        handleWindowInsets(view)
 
         detectIntent = DetectIntent(this, getDialogFlowSession())
 
@@ -142,6 +154,22 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         setupChat()
         setupWebView()
         setupAdNetwork()
+    }
+
+    private fun handleWindowInsets(view: View) {
+        ViewCompat.setOnApplyWindowInsetsListener(view) { v, windowInsets ->
+            val navBarInsets = windowInsets.getInsets(
+                WindowInsetsCompat.Type.navigationBars()
+                        or WindowInsetsCompat.Type.displayCutout()
+            )
+            val imeInsets = windowInsets.getInsets(WindowInsetsCompat.Type.ime())
+            v.updatePadding(
+                left = navBarInsets.left,
+                right = navBarInsets.right,
+                bottom = maxOf(navBarInsets.bottom, imeInsets.bottom),
+            )
+            windowInsets
+        }
     }
 
     private fun initRemoteConfig() {
@@ -283,14 +311,20 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         ImobileSdkAd.start(IMOBILE_BANNER_SID)
 
         val imobileBannerLayout = FrameLayout(this)
-        val imobileBannerLayoutParam: FrameLayout.LayoutParams =
-            FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.WRAP_CONTENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT
-            )
+        val imobileBannerLayoutParam = FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT)
         imobileBannerLayoutParam.gravity = Gravity.TOP or Gravity.CENTER
         imobileBannerLayout.visibility = View.INVISIBLE
         addContentView(imobileBannerLayout, imobileBannerLayoutParam)
+        ViewCompat.setOnApplyWindowInsetsListener(imobileBannerLayout) { v, windowInsets ->
+            val insets = windowInsets.getInsets(
+                WindowInsetsCompat.Type.systemBars()
+                        or WindowInsetsCompat.Type.displayCutout()
+            )
+            v.updateLayoutParams<ViewGroup.MarginLayoutParams> {
+                topMargin = insets.top + actionBarSize
+            }
+            windowInsets
+        }
         ImobileSdkAd.showAd(this, IMOBILE_BANNER_SID, imobileBannerLayout, true)
 
         val mlp = binding.chatView.layoutParams as ViewGroup.MarginLayoutParams
@@ -300,12 +334,14 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                 Log.d(TAG, "ImobileSdkAd($IMOBILE_BANNER_SID) onAdReadyCompleted")
                 imobileBannerLayout.visibility = View.VISIBLE
                 mlp.topMargin = imobileBannerLayout.height
+                binding.chatView.requestLayout()
             }
 
             override fun onFailed(reason: FailNotificationReason) {
                 Log.d(TAG, "ImobileSdkAd($IMOBILE_BANNER_SID) onFailed: $reason")
                 imobileBannerLayout.visibility = View.INVISIBLE
                 mlp.topMargin = 0
+                binding.chatView.requestLayout()
             }
         })
     }
@@ -342,10 +378,14 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                     Log.d(TAG, "IronSource banner loaded: $adInfo")
                     val mlp = binding.chatView.layoutParams as ViewGroup.MarginLayoutParams
                     mlp.topMargin = ironSourceBannerLayout.height
+                    binding.chatView.requestLayout()
                 }
 
                 override fun onAdLoadFailed(error: IronSourceError) {
                     Log.e(TAG, "IronSource banner load failed: $error")
+                    val mlp = binding.chatView.layoutParams as ViewGroup.MarginLayoutParams
+                    mlp.topMargin = 0
+                    binding.chatView.requestLayout()
                 }
 
                 override fun onAdClicked(adInfo: AdInfo) {
@@ -365,12 +405,20 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                 }
             }
 
-            val layoutParams = FrameLayout.LayoutParams(
-                WRAP_CONTENT, WRAP_CONTENT
-            ).apply {
+            val layoutParams = FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
                 gravity = Gravity.TOP or Gravity.CENTER
             }
             addContentView(ironSourceBannerLayout, layoutParams)
+            ViewCompat.setOnApplyWindowInsetsListener(ironSourceBannerLayout) { v, windowInsets ->
+                val insets = windowInsets.getInsets(
+                    WindowInsetsCompat.Type.systemBars()
+                            or WindowInsetsCompat.Type.displayCutout()
+                )
+                v.updateLayoutParams<ViewGroup.MarginLayoutParams> {
+                    topMargin = insets.top + actionBarSize
+                }
+                windowInsets
+            }
             if (BUILD_TYPE == "debug") {
                 IntegrationHelper.validateIntegration(context);
             }
