@@ -60,9 +60,11 @@ import com.aqua_ix.youbimiku.config.getLanguage
 import com.aqua_ix.youbimiku.config.getOpenAIRequestCount
 import com.aqua_ix.youbimiku.config.getSupportRequestCount
 import com.aqua_ix.youbimiku.config.getUIMode
+import com.aqua_ix.youbimiku.config.isSupporter
 import com.aqua_ix.youbimiku.config.setAIModel
 import com.aqua_ix.youbimiku.config.setFontSize
 import com.aqua_ix.youbimiku.config.setOpenAIRequestCount
+import com.aqua_ix.youbimiku.config.setSupporter
 import com.aqua_ix.youbimiku.config.setSupportRequestCount
 import com.aqua_ix.youbimiku.config.setUIMode
 import com.aqua_ix.youbimiku.database.AppDatabase
@@ -834,6 +836,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     }
 
     private fun showSupportDialog(requireUrls: Boolean = false) {
+        if (isSupporter(applicationContext)) return
+
         val patreonUrl = remoteConfig.getString(RemoteConfigKey.PATREON_URL)
         val kofiUrl = remoteConfig.getString(RemoteConfigKey.KOFI_URL)
         val githubSponsorsUrl = remoteConfig.getString(RemoteConfigKey.GITHUB_SPONSORS_URL)
@@ -863,6 +867,10 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                 visibility = View.VISIBLE
                 setOnClickListener { openUrl(githubSponsorsUrl); dialog.dismiss() }
             }
+        }
+        view.findViewById<android.widget.Button>(R.id.btn_already_supporting).setOnClickListener {
+            setSupporter(applicationContext)
+            dialog.dismiss()
         }
 
         dialog.show()

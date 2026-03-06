@@ -72,5 +72,6 @@
     <string name="support_kofi">Buy me a Ko-fi</string>
     <string name="support_github_sponsors">Sponsor on GitHub</string>
     <string name="support_later">Later</string>
+    <string name="support_already">I\'m already supporting ♥</string>
     <string name="support_url_error">Browser not found</string>
 </resources>

@@ -33,3 +33,11 @@ fun setSupportRequestCount(context: Context, count: Int) {
         count
     )
 }
+
+fun isSupporter(context: Context): Boolean {
+    return SharedPreferenceManager.get(context, Key.IS_SUPPORTER.name, false)
+}
+
+fun setSupporter(context: Context) {
+    SharedPreferenceManager.put(context, Key.IS_SUPPORTER.name, true)
+}

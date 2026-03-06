@@ -52,4 +52,13 @@
         android:layout_marginBottom="4dp"
         android:visibility="gone" />
 
+    <Button
+        android:id="@+id/btn_already_supporting"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/support_already"
+        style="?attr/borderlessButtonStyle"
+        android:textSize="12sp"
+        android:layout_marginTop="4dp" />
+
 </LinearLayout>

@@ -71,5 +71,6 @@
     <string name="support_kofi">Ko-fiで支援する</string>
     <string name="support_github_sponsors">GitHub Sponsorsで支援する</string>
     <string name="support_later">後で</string>
+    <string name="support_already">すでに支援しています ♥</string>
     <string name="support_url_error">ブラウザが見つかりません</string>
 </resources>
