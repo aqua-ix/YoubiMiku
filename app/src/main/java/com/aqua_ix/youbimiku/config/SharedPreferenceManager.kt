@@ -27,6 +27,14 @@ open class SharedPreferenceManager {
         fun put(context: Context, key: String, value: Int) {
             instance(context).edit().putInt(key, value).apply()
         }
+
+        fun get(context: Context, key: String, defValue: Boolean): Boolean {
+            return instance(context).getBoolean(key, defValue)
+        }
+
+        fun put(context: Context, key: String, value: Boolean) {
+            instance(context).edit().putBoolean(key, value).apply()
+        }
     }
 }
 
@@ -37,5 +45,7 @@ enum class Key {
     LAUNCH_COUNT,
     AI_MODEL,
     OPENAI_REQUEST_COUNT,
+    SUPPORT_REQUEST_COUNT,
+    IS_SUPPORTER,
     UI_MODE
 }
