@@ -20,4 +20,12 @@
         <key>openai_enabled</key>
         <value>true</value>
     </entry>
+    <entry>
+        <key>support_links</key>
+        <value>[]</value>
+    </entry>
+    <entry>
+        <key>support_display_request_times</key>
+        <value>50</value>
+    </entry>
 </defaultsMap>
