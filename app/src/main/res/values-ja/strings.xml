@@ -63,4 +63,12 @@
     <string name="avatar_mode_message_accept">使ってみる</string>
     <string name="avatar_mode_message_cancel">閉じる</string>
     <string name="avatar_mode_reload">再読み込み</string>
+
+    <string name="support_menu_title">開発者を応援する</string>
+    <string name="support_title">♥ ミクを応援しよう！</string>
+    <string name="support_description">アプリを楽しんでいただけている方は、ぜひ開発を応援してください！</string>
+    <string name="support_button_label">%sで支援する</string>
+    <string name="support_later">後で</string>
+    <string name="support_already">すでに支援しています ♥</string>
+    <string name="support_url_error">ブラウザが見つかりません</string>
 </resources>

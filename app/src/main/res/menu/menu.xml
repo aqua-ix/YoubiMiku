@@ -15,4 +15,6 @@
         android:title="@string/avatar_mode_reload" />
     <item android:id="@+id/setting_official_account"
         android:title="@string/official_account"/>
+    <item android:id="@+id/support_developer"
+        android:title="@string/support_menu_title"/>
 </menu>
