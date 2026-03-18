@@ -66,8 +66,8 @@
     <string name="avatar_mode_reload">Reload</string>
 
     <string name="support_menu_title">Support Developer</string>
-    <string name="support_title">&#9829; Support Miku!</string>
-    <string name="support_description">If you enjoy this app, please consider supporting development!</string>
+    <string name="support_title">Support Development</string>
+    <string name="support_description">Help keep this app going! Your support is greatly appreciated.</string>
     <string name="support_button_label">Support on %s</string>
     <string name="support_later">Later</string>
     <string name="support_already">I\'m already supporting ♥</string>

@@ -859,6 +859,10 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             val button = android.widget.Button(this).apply {
                 layoutParams = params
                 text = getString(R.string.support_button_label, name)
+                setTextColor(android.graphics.Color.WHITE)
+                backgroundTintList = android.content.res.ColorStateList.valueOf(
+                    androidx.core.content.ContextCompat.getColor(context, R.color.colorPrimary)
+                )
                 setOnClickListener { openUrl(url); dialog.dismiss() }
             }
             container.addView(button)
