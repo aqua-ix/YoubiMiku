@@ -908,7 +908,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         menu.findItem(R.id.avatar_mode_reload).isVisible = isAvatarMode
 
         val hasSupportLinks = parseSupportLinks(remoteConfig.getString(RemoteConfigKey.SUPPORT_LINKS)).isNotEmpty()
-        menu.findItem(R.id.support_developer).isVisible = hasSupportLinks && !isSupporter(applicationContext)
+        menu.findItem(R.id.support_developer).isVisible = hasSupportLinks
 
         menu.add(Menu.NONE, 1, Menu.NONE, R.string.avatar_mode)
             .setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
