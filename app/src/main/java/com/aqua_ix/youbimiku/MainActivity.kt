@@ -847,6 +847,10 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         val dialog = AlertDialog.Builder(this)
             .setView(view)
             .setNegativeButton(R.string.support_later, null)
+            .setNeutralButton(R.string.support_already) { _, _ ->
+                setSupporter(applicationContext)
+                invalidateOptionsMenu()
+            }
             .create()
 
         val container = view.findViewById<android.widget.LinearLayout>(R.id.support_buttons_container)
@@ -866,11 +870,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                 setOnClickListener { openUrl(url); dialog.dismiss() }
             }
             container.addView(button)
-        }
-
-        view.findViewById<android.widget.Button>(R.id.btn_already_supporting).setOnClickListener {
-            setSupporter(applicationContext)
-            dialog.dismiss()
         }
 
         dialog.show()
