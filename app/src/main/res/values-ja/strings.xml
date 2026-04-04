@@ -69,6 +69,6 @@
     <string name="support_description">アプリを楽しんでいただけていたら、ぜひ開発の継続を応援してください！</string>
     <string name="support_button_label">%sで支援する</string>
     <string name="support_later">後で</string>
-    <string name="support_already">すでに支援しています ♥</string>
+    <string name="support_already">すでに支援しています</string>
     <string name="support_url_error">ブラウザが見つかりません</string>
 </resources>
