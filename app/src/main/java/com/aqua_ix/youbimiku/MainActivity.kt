@@ -828,8 +828,9 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
     private fun openUrl(url: String) {
         try {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-            startActivity(intent)
+            val uri = Uri.parse(url)
+            if (uri.scheme != "http" && uri.scheme != "https") return
+            startActivity(Intent(Intent.ACTION_VIEW, uri))
         } catch (e: Exception) {
             Toast.makeText(this, getString(R.string.support_url_error), Toast.LENGTH_SHORT).show()
         }
