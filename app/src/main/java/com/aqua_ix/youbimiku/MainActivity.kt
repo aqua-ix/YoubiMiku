@@ -837,8 +837,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     }
 
     private fun showSupportDialog(requireUrls: Boolean = false) {
-        if (isSupporter(applicationContext)) return
-
         val linksJson = remoteConfig.getString(RemoteConfigKey.SUPPORT_LINKS)
         val links = parseSupportLinks(linksJson)
 
