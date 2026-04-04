@@ -1068,10 +1068,12 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             }
         }
 
+        val supportTimes = remoteConfig.getDouble(RemoteConfigKey.SUPPORT_DISPLAY_REQUEST_TIMES).toInt()
+        if (supportTimes <= 0 || isSupporter(applicationContext)) return
+
         val supportCount = getSupportRequestCount(applicationContext) + 1
         setSupportRequestCount(applicationContext, supportCount)
-        val supportTimes = remoteConfig.getDouble(RemoteConfigKey.SUPPORT_DISPLAY_REQUEST_TIMES).toInt()
-        if (supportTimes > 0 && supportCount >= supportTimes) {
+        if (supportCount >= supportTimes) {
             Log.d(TAG, "Support display request count: $supportCount")
             setSupportRequestCount(applicationContext, 0)
             showSupportDialog(requireUrls = true)
