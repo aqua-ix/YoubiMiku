@@ -14,6 +14,8 @@ class RemoteConfigKey {
         const val AD_NETWORK = "ad_network"
         const val AD_DISPLAY_REQUEST_TIMES = "ad_display_request_times"
         const val OPENAI_ENABLED = "openai_enabled"
+        const val SUPPORT_LINKS = "support_links"
+        const val SUPPORT_DISPLAY_REQUEST_TIMES = "support_display_request_times"
     }
 
     class AdNetwork {

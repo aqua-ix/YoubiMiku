@@ -58,10 +58,14 @@ import com.aqua_ix.youbimiku.config.getDisplayName
 import com.aqua_ix.youbimiku.config.getFontSizeType
 import com.aqua_ix.youbimiku.config.getLanguage
 import com.aqua_ix.youbimiku.config.getOpenAIRequestCount
+import com.aqua_ix.youbimiku.config.getSupportRequestCount
 import com.aqua_ix.youbimiku.config.getUIMode
+import com.aqua_ix.youbimiku.config.isSupporter
 import com.aqua_ix.youbimiku.config.setAIModel
 import com.aqua_ix.youbimiku.config.setFontSize
 import com.aqua_ix.youbimiku.config.setOpenAIRequestCount
+import com.aqua_ix.youbimiku.config.setSupporter
+import com.aqua_ix.youbimiku.config.setSupportRequestCount
 import com.aqua_ix.youbimiku.config.setUIMode
 import com.aqua_ix.youbimiku.database.AppDatabase
 import com.aqua_ix.youbimiku.database.entityToMessage
@@ -822,6 +826,70 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         }
     }
 
+    private fun openUrl(url: String) {
+        try {
+            val uri = Uri.parse(url)
+            if (uri.scheme != "http" && uri.scheme != "https") return
+            startActivity(Intent(Intent.ACTION_VIEW, uri))
+        } catch (e: Exception) {
+            Toast.makeText(this, getString(R.string.support_url_error), Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun showSupportDialog(requireUrls: Boolean = false) {
+        val linksJson = remoteConfig.getString(RemoteConfigKey.SUPPORT_LINKS)
+        val links = parseSupportLinks(linksJson)
+
+        if (requireUrls && links.isEmpty()) return
+
+        val view = layoutInflater.inflate(R.layout.dialog_support, null)
+        val dialog = AlertDialog.Builder(this)
+            .setView(view)
+            .setNegativeButton(R.string.support_later, null)
+            .setNeutralButton(R.string.support_already) { _, _ ->
+                setSupporter(applicationContext)
+                invalidateOptionsMenu()
+            }
+            .create()
+
+        val container = view.findViewById<android.widget.LinearLayout>(R.id.support_buttons_container)
+        val params = android.widget.LinearLayout.LayoutParams(
+            android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+            resources.getDimensionPixelSize(R.dimen.support_button_height)
+        ).also { it.bottomMargin = resources.getDimensionPixelSize(R.dimen.support_button_margin) }
+
+        links.forEach { (name, url) ->
+            val button = android.widget.Button(this).apply {
+                layoutParams = params
+                text = getString(R.string.support_button_label, name)
+                isAllCaps = false
+                setTextColor(android.graphics.Color.WHITE)
+                backgroundTintList = android.content.res.ColorStateList.valueOf(
+                    androidx.core.content.ContextCompat.getColor(context, R.color.colorPrimary)
+                )
+                setOnClickListener { openUrl(url); dialog.dismiss() }
+            }
+            container.addView(button)
+        }
+
+        dialog.show()
+    }
+
+    private fun parseSupportLinks(json: String): List<Pair<String, String>> {
+        return try {
+            val array = org.json.JSONArray(json)
+            (0 until array.length()).mapNotNull { i ->
+                val obj = array.getJSONObject(i)
+                val name = obj.optString("name")
+                val url = obj.optString("url")
+                if (name.isNotEmpty() && url.isNotEmpty()) name to url else null
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to parse support_links: ${e.message}")
+            emptyList()
+        }
+    }
+
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         val inflater = menuInflater
         inflater.inflate(R.menu.menu, menu)
@@ -836,6 +904,9 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         menu.findItem(R.id.clear_message_history).isVisible = !isAvatarMode
 
         menu.findItem(R.id.avatar_mode_reload).isVisible = isAvatarMode
+
+        val hasSupportLinks = parseSupportLinks(remoteConfig.getString(RemoteConfigKey.SUPPORT_LINKS)).isNotEmpty()
+        menu.findItem(R.id.support_developer).isVisible = hasSupportLinks
 
         menu.add(Menu.NONE, 1, Menu.NONE, R.string.avatar_mode)
             .setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
@@ -893,6 +964,11 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
             R.id.setting_official_account -> {
                 openOfficialAccountIntent()
+                true
+            }
+
+            R.id.support_developer -> {
+                showSupportDialog()
                 true
             }
 
@@ -988,6 +1064,17 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                     setOpenAIRequestCount(applicationContext, 0)
                 }
             }
+        }
+
+        val supportTimes = remoteConfig.getDouble(RemoteConfigKey.SUPPORT_DISPLAY_REQUEST_TIMES).toInt()
+        if (supportTimes <= 0 || isSupporter(applicationContext)) return
+
+        val supportCount = getSupportRequestCount(applicationContext) + 1
+        setSupportRequestCount(applicationContext, supportCount)
+        if (supportCount >= supportTimes) {
+            Log.d(TAG, "Support display request count: $supportCount")
+            setSupportRequestCount(applicationContext, 0)
+            showSupportDialog(requireUrls = true)
         }
     }
 
