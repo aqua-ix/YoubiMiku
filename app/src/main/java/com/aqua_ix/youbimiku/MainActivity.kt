@@ -102,9 +102,11 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     private var isActivityResumed = false
 
     private lateinit var webView: WebView
-    private lateinit var avatarClientId: String
-    private lateinit var avatarClientSecret: String
+    private var avatarClientId = ""
+    private var avatarClientSecret = ""
 
+    // 認証情報の到着を待っているアバターモードへの切り替え要求
+    private var pendingAvatarMode = false
     private var pendingAudioPermissionRequest: PermissionRequest? = null
 
     private var openAIPreviousResponse = ""
@@ -444,16 +446,35 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                 avatarClientSecret =
                     dataSnapshot.child("clientSecret").getValue(String::class.java) ?: ""
 
-                if (getUIMode(this@MainActivity) != "") {
-                    isAvatarMode = getUIMode(this@MainActivity) == UIModeConfig.AVATAR.name
-                    toggleAvatarMode(isAvatarMode)
+                if (avatarClientId.isEmpty() || avatarClientSecret.isEmpty()) {
+                    Log.e(TAG, "Avatar credentials are missing.")
+                    onAvatarCredentialsUnavailable()
+                    return
+                }
+
+                if (pendingAvatarMode) {
+                    // 認証情報の到着を待っていた切り替え要求を再開する
+                    pendingAvatarMode = false
+                    toggleAvatarMode(true)
+                } else if (getUIMode(this@MainActivity) != "") {
+                    toggleAvatarMode(getUIMode(this@MainActivity) == UIModeConfig.AVATAR.name)
                 }
             }
 
             override fun onCancelled(databaseError: DatabaseError) {
                 Log.e(TAG, "Database error: ${databaseError.message}")
+                onAvatarCredentialsUnavailable()
             }
         })
+    }
+
+    private fun onAvatarCredentialsUnavailable() {
+        if (!pendingAvatarMode) {
+            return
+        }
+        pendingAvatarMode = false
+        binding.progressBar.visibility = View.GONE
+        Toast.makeText(this, R.string.avatar_mode_error, Toast.LENGTH_SHORT).show()
     }
 
     private fun showAvatarModeInfoDialog() {
@@ -543,20 +564,19 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                 request: WebResourceRequest?,
                 error: WebResourceError?
             ) {
-                if (request?.url?.host.equals("static.cloudflareinsights.com")) {
-                    // 計測用なので無視する
-                    Log.w(TAG, "Ignore loading error for insights")
+                if (request?.isForMainFrame != true) {
+                    // サブリソース（計測用スクリプトなど）の失敗は無視する
+                    Log.w(TAG, "Ignore loading error for sub resource: ${request?.url}")
                     return
                 }
                 Log.e(
                     TAG, "Avatar mode loading error: ${error?.errorCode}, ${error?.description}"
                 )
                 super.onReceivedError(view, request, error)
-                // Handle loading errors
+                // 一時的な失敗でモードを解除せず、再読み込みか戻るキーで復帰できるようにする
                 binding.progressBar.visibility = View.GONE
                 Toast.makeText(this@MainActivity, R.string.avatar_mode_error, Toast.LENGTH_SHORT)
                     .show()
-                toggleAvatarMode(false)
             }
         }
 
@@ -849,9 +869,12 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     }
 
     private fun toggleAvatarMode(enable: Boolean = !isAvatarMode) {
-        if (::avatarClientId.isInitialized.not() || ::avatarClientSecret.isInitialized.not()) {
-            Log.e(TAG, "Avatar mode initialization error")
-            Toast.makeText(this, R.string.avatar_mode_error, Toast.LENGTH_SHORT).show()
+        if (enable && (avatarClientId.isEmpty() || avatarClientSecret.isEmpty())) {
+            // 認証情報がまだ届いていないので、待っていることを示して到着後に切り替える
+            Log.w(TAG, "Avatar credentials are not ready yet.")
+            pendingAvatarMode = true
+            binding.progressBar.visibility = View.VISIBLE
+            Toast.makeText(this, R.string.avatar_mode_preparing, Toast.LENGTH_SHORT).show()
             return
         }
 
