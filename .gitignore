@@ -13,3 +13,5 @@ debug.properties
 release.properties
 secrets.properties
 release/
+*.local.md
+*.local.json
