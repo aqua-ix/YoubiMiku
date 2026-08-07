@@ -22,6 +22,7 @@ import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
@@ -137,6 +138,19 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                 ).show()
             }
         }
+
+    private val avatarModeBackCallback = object : OnBackPressedCallback(false) {
+        override fun handleOnBackPressed() {
+            val backForwardList = webView.copyBackForwardList()
+            val previous = backForwardList.getItemAtIndex(backForwardList.currentIndex - 1)
+            if (webView.canGoBack() && previous?.url?.startsWith(BuildConfig.AVATAR_BASE_URL) == true) {
+                // アバターページ内の履歴を辿る
+                webView.goBack()
+            } else {
+                toggleAvatarMode(false)
+            }
+        }
+    }
 
     public override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -563,6 +577,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                 request.deny()
             }
         }
+
+        onBackPressedDispatcher.addCallback(this, avatarModeBackCallback)
     }
 
     private fun loadAvatarPage() {
@@ -841,6 +857,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
         isAvatarMode = enable
         setUIMode(this, if (isAvatarMode) UIModeConfig.AVATAR else UIModeConfig.CHAT)
+        avatarModeBackCallback.isEnabled = isAvatarMode
         invalidateOptionsMenu()
 
         if (isAvatarMode) {
