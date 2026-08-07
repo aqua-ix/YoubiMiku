@@ -78,7 +78,6 @@ dependencies {
     implementation("androidx.room:room-ktx:$roomVersion")
 
     implementation("org.jetbrains.kotlin:kotlin-stdlib:1.9.23")
-    implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.jar"))))
     implementation("com.google.firebase:firebase-database-ktx:21.0.0")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.1.0") {
         exclude(group = "com.android.support", module = "support-annotations")
@@ -109,11 +108,13 @@ dependencies {
     implementation(platform("com.google.firebase:firebase-bom:33.5.1"))
     implementation("com.google.firebase:firebase-config-ktx")
     implementation("com.google.firebase:firebase-analytics-ktx")
-    implementation("com.google.android.gms:play-services-appset:16.1.0")
-    implementation("com.google.android.gms:play-services-ads-identifier:18.1.0")
     implementation("com.google.android.gms:play-services-basement:18.4.0")
-    implementation(files("libs/imobileSdkAds.jar"))
-    implementation("com.ironsource.sdk:mediationsdk:8.12.0")
+
+    // 広告SDKは ads フレーバーにのみ同梱する
+    "adsImplementation"(fileTree(mapOf("dir" to "libs", "include" to listOf("*.jar"))))
+    "adsImplementation"("com.ironsource.sdk:mediationsdk:8.12.0")
+    "adsImplementation"("com.google.android.gms:play-services-appset:16.1.0")
+    "adsImplementation"("com.google.android.gms:play-services-ads-identifier:18.1.0")
 }
 
 secrets {
