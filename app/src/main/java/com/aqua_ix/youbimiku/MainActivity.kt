@@ -23,6 +23,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
@@ -103,6 +104,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     private lateinit var avatarClientId: String
     private lateinit var avatarClientSecret: String
 
+    private var pendingAudioPermissionRequest: PermissionRequest? = null
+
     private var openAIPreviousResponse = ""
 
     private val job = SupervisorJob()
@@ -113,8 +116,27 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     private val scope = CoroutineScope(Dispatchers.Default + job + exceptionHandler)
     private var openAITaskJob: Job? = null
 
-    private var PERMISSIONS_REQUEST_RECORD_AUDIO = 0
     private var actionBarSize = 0
+
+    private val recordAudioPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+            val request = pendingAudioPermissionRequest
+            pendingAudioPermissionRequest = null
+            if (isGranted) {
+                if (request != null) {
+                    request.grant(arrayOf(PermissionRequest.RESOURCE_AUDIO_CAPTURE))
+                } else {
+                    webView.reload()
+                }
+            } else {
+                request?.deny()
+                Toast.makeText(
+                    this,
+                    R.string.avatar_mode_needs_record_audio_permission,
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
 
     public override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -532,10 +554,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                         if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
                             request.grant(arrayOf(PermissionRequest.RESOURCE_AUDIO_CAPTURE))
                         } else {
-                            requestPermissions(
-                                arrayOf(android.Manifest.permission.RECORD_AUDIO),
-                                PERMISSIONS_REQUEST_RECORD_AUDIO
-                            )
+                            pendingAudioPermissionRequest = request
+                            recordAudioPermissionLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
                         }
                         return
                     }
@@ -975,27 +995,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                 binding.chatView.receive(receivedMessage)
             }
             appDatabase.messageDao().insert(messageToEntity(receivedMessage))
-        }
-    }
-
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        when (requestCode) {
-            PERMISSIONS_REQUEST_RECORD_AUDIO -> {
-                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    webView.reload()
-                } else if (grantResults[0] == PackageManager.PERMISSION_DENIED) {
-                    Toast.makeText(
-                        this,
-                        R.string.avatar_mode_needs_record_audio_permission,
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
-            }
         }
     }
 
