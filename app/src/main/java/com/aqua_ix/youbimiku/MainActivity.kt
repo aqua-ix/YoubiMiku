@@ -1000,6 +1000,11 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
     public override fun onPause() {
         isActivityResumed = false
+        if (::webView.isInitialized) {
+            // バックグラウンドで音声再生や3D描画が続かないように止める
+            webView.onPause()
+            webView.pauseTimers()
+        }
         adController.onPause(this)
         super.onPause()
     }
@@ -1007,10 +1012,19 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     public override fun onResume() {
         isActivityResumed = true
         adController.onResume(this)
+        if (::webView.isInitialized) {
+            webView.resumeTimers()
+            webView.onResume()
+        }
         super.onResume()
     }
 
     public override fun onDestroy() {
+        if (::webView.isInitialized) {
+            webView.stopLoading()
+            (webView.parent as? ViewGroup)?.removeView(webView)
+            webView.destroy()
+        }
         detectIntent.resetContexts()
         scope.coroutineContext.cancel()
         adController.onDestroy(this)
