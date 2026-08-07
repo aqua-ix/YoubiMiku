@@ -144,8 +144,13 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     private val avatarModeBackCallback = object : OnBackPressedCallback(false) {
         override fun handleOnBackPressed() {
             val backForwardList = webView.copyBackForwardList()
-            val previous = backForwardList.getItemAtIndex(backForwardList.currentIndex - 1)
-            if (webView.canGoBack() && previous?.url?.startsWith(BuildConfig.AVATAR_BASE_URL) == true) {
+            val previousIndex = backForwardList.currentIndex - 1
+            val previousUrl = if (webView.canGoBack() && previousIndex >= 0) {
+                backForwardList.getItemAtIndex(previousIndex)?.url
+            } else {
+                null
+            }
+            if (previousUrl?.startsWith(BuildConfig.AVATAR_BASE_URL) == true) {
                 // アバターページ内の履歴を辿る
                 webView.goBack()
             } else {
