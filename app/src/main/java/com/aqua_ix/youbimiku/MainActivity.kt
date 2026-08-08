@@ -52,13 +52,14 @@ import com.aqua_ix.youbimiku.config.getAIModel
 import com.aqua_ix.youbimiku.config.getDisplayName
 import com.aqua_ix.youbimiku.config.getFontSizeType
 import com.aqua_ix.youbimiku.config.getLanguage
-import com.aqua_ix.youbimiku.config.getOpenAIRequestCount
+import com.aqua_ix.youbimiku.config.getMessageCountForAd
 import com.aqua_ix.youbimiku.config.getSupportRequestCount
 import com.aqua_ix.youbimiku.config.getUIMode
 import com.aqua_ix.youbimiku.config.isSupporter
+import com.aqua_ix.youbimiku.config.migrateMessageCountForAd
 import com.aqua_ix.youbimiku.config.setAIModel
 import com.aqua_ix.youbimiku.config.setFontSize
-import com.aqua_ix.youbimiku.config.setOpenAIRequestCount
+import com.aqua_ix.youbimiku.config.setMessageCountForAd
 import com.aqua_ix.youbimiku.config.setSupporter
 import com.aqua_ix.youbimiku.config.setSupportRequestCount
 import com.aqua_ix.youbimiku.config.setUIMode
@@ -176,6 +177,9 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         handleWindowInsets(view)
 
         detectIntent = DetectIntent(this, getDialogFlowSession())
+
+        // 旧キーに残っている広告表示用のメッセージ数を引き継ぐ
+        migrateMessageCountForAd(applicationContext)
 
         // プロセス再生成からの復帰時は、アバターモードだった場合だけ開いていたページを引き継ぐ
         savedAvatarUrl = if (savedInstanceState?.getBoolean(STATE_AVATAR_MODE) == true) {
@@ -1012,8 +1016,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             return
         }
 
-        var count = getOpenAIRequestCount(applicationContext)
-
         when (getAIModel(this)) {
             AIModelConfig.OPEN_AI.name ->
                 scope.launch {
@@ -1023,7 +1025,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                     openAITaskJob = launch {
                         openAITask(text)
                     }
-                    setOpenAIRequestCount(applicationContext, ++count)
                 }
 
             else ->
@@ -1032,14 +1033,31 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                 }
         }
 
-        // 未設定・不正値の場合はnullになり、インタースティシャルを表示しない
-        val adDisplayRequestTimes = RemoteConfigProvider.adDisplayRequestTimes
-        if (adDisplayRequestTimes != null && count >= adDisplayRequestTimes) {
-            Log.d(TAG, "Ad display request count: $count")
-            setOpenAIRequestCount(applicationContext, 0)
-            adController.showInterstitial(this)
+        showInterstitialIfNeeded()
+        showSupportDialogIfNeeded()
+    }
+
+    /**
+     * 送信されたメッセージ数を数え、設定回数に達したらインタースティシャルを表示する。
+     * AIモデルによって数え方が変わらないよう、加算・判定・リセットをここでまとめて行う。
+     */
+    private fun showInterstitialIfNeeded() {
+        // 未取得・未設定・不正値の場合はnullになり、インタースティシャルを表示しない
+        val times = RemoteConfigProvider.adDisplayRequestTimes
+        val count = getMessageCountForAd(applicationContext) + 1
+        if (times == null || count < times) {
+            setMessageCountForAd(applicationContext, count)
+            return
         }
 
+        Log.d(TAG, "Ad display message count: $count")
+        // ロードが終わっていない場合はカウントを持ち越して次の送信で表示し直す。
+        // 設定回数より多く数える意味はないので、持ち越す値は設定回数に留める
+        val isShown = adController.showInterstitial(this)
+        setMessageCountForAd(applicationContext, if (isShown) 0 else times)
+    }
+
+    private fun showSupportDialogIfNeeded() {
         val supportTimes = RemoteConfigProvider.supportDisplayRequestTimes
         if (supportTimes == null || isSupporter(applicationContext)) return
 
