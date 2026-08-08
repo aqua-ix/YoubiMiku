@@ -57,7 +57,15 @@
     <string name="chat_mode">チャットモード</string>
     <string name="avatar_mode">アバターモード</string>
     <string name="avatar_mode_needs_record_audio_permission">音声入力の許可が必要です</string>
+    <string name="avatar_mode_record_audio_rationale_title">マイクを使用します</string>
+    <string name="avatar_mode_record_audio_rationale_message">アバターモードでは声で初音ミクに話しかけるため、マイクの使用許可が必要です。次の画面で許可してください。</string>
+    <string name="avatar_mode_record_audio_continue">続ける</string>
+    <string name="avatar_mode_record_audio_denied_message">マイクを許可しないと声で話しかけられません。もう一度許可するか、チャットモードで文字のまま会話できます。</string>
+    <string name="avatar_mode_record_audio_blocked_message">このアプリのマイクの使用が拒否されています。声で話しかけるには設定から許可してください。</string>
+    <string name="avatar_mode_record_audio_retry">もう一度許可する</string>
+    <string name="avatar_mode_record_audio_open_settings">設定を開く</string>
     <string name="avatar_mode_error">アバター画面の読み込みに失敗しました</string>
+    <string name="avatar_mode_preparing">アバターモードを準備しています…</string>
     <string name="avatar_mode_message_title">アバターモードが追加されました</string>
     <string name="avatar_mode_message_text">3Dアバターの初音ミクと会話できる機能が追加されました！（右上のアイコンをタップしてモードを切り替えることができます。）</string>
     <string name="avatar_mode_message_accept">使ってみる</string>

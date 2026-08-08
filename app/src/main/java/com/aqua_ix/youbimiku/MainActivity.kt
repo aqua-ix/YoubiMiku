@@ -9,6 +9,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
+import android.provider.Settings
 import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
@@ -22,7 +23,9 @@ import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
@@ -100,8 +103,19 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     private var isActivityResumed = false
 
     private lateinit var webView: WebView
-    private lateinit var avatarClientId: String
-    private lateinit var avatarClientSecret: String
+    private var avatarClientId = ""
+    private var avatarClientSecret = ""
+
+    // 認証情報の到着を待っているアバターモードへの切り替え要求
+    private var pendingAvatarMode = false
+
+    // 認証情報の取得結果が空だったかどうか。値が変わらない限りリスナーは再発火しないので、
+    // この場合は到着を待たずにエラーにする
+    private var avatarCredentialsFailed = false
+    private var pendingAudioPermissionRequest: PermissionRequest? = null
+
+    // プロセス再生成前に開いていたアバターページ。次にアバターページを開くときに一度だけ使う
+    private var savedAvatarUrl: String? = null
 
     private var openAIPreviousResponse = ""
 
@@ -113,8 +127,41 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     private val scope = CoroutineScope(Dispatchers.Default + job + exceptionHandler)
     private var openAITaskJob: Job? = null
 
-    private var PERMISSIONS_REQUEST_RECORD_AUDIO = 0
     private var actionBarSize = 0
+
+    private val recordAudioPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+            val request = pendingAudioPermissionRequest
+            pendingAudioPermissionRequest = null
+            if (isGranted) {
+                if (request != null) {
+                    request.grant(arrayOf(PermissionRequest.RESOURCE_AUDIO_CAPTURE))
+                } else {
+                    webView.reload()
+                }
+            } else {
+                request?.deny()
+                showRecordAudioPermissionDeniedDialog()
+            }
+        }
+
+    private val avatarModeBackCallback = object : OnBackPressedCallback(false) {
+        override fun handleOnBackPressed() {
+            val backForwardList = webView.copyBackForwardList()
+            val previousIndex = backForwardList.currentIndex - 1
+            val previousUrl = if (webView.canGoBack() && previousIndex >= 0) {
+                backForwardList.getItemAtIndex(previousIndex)?.url
+            } else {
+                null
+            }
+            if (previousUrl?.startsWith(BuildConfig.AVATAR_BASE_URL) == true) {
+                // アバターページ内の履歴を辿る
+                webView.goBack()
+            } else {
+                toggleAvatarMode(false)
+            }
+        }
+    }
 
     public override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -129,6 +176,13 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         handleWindowInsets(view)
 
         detectIntent = DetectIntent(this, getDialogFlowSession())
+
+        // プロセス再生成からの復帰時は、アバターモードだった場合だけ開いていたページを引き継ぐ
+        savedAvatarUrl = if (savedInstanceState?.getBoolean(STATE_AVATAR_MODE) == true) {
+            savedInstanceState.getString(STATE_AVATAR_URL)
+        } else {
+            null
+        }
 
         initChatView()
         initDatabase()
@@ -408,16 +462,38 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                 avatarClientSecret =
                     dataSnapshot.child("clientSecret").getValue(String::class.java) ?: ""
 
-                if (getUIMode(this@MainActivity) != "") {
-                    isAvatarMode = getUIMode(this@MainActivity) == UIModeConfig.AVATAR.name
-                    toggleAvatarMode(isAvatarMode)
+                if (avatarClientId.isEmpty() || avatarClientSecret.isEmpty()) {
+                    Log.e(TAG, "Avatar credentials are missing.")
+                    avatarCredentialsFailed = true
+                    onAvatarCredentialsUnavailable()
+                    return
+                }
+
+                avatarCredentialsFailed = false
+                if (pendingAvatarMode) {
+                    // 認証情報の到着を待っていた切り替え要求を再開する
+                    pendingAvatarMode = false
+                    toggleAvatarMode(true)
+                } else if (getUIMode(this@MainActivity) != "") {
+                    toggleAvatarMode(getUIMode(this@MainActivity) == UIModeConfig.AVATAR.name)
                 }
             }
 
             override fun onCancelled(databaseError: DatabaseError) {
                 Log.e(TAG, "Database error: ${databaseError.message}")
+                avatarCredentialsFailed = true
+                onAvatarCredentialsUnavailable()
             }
         })
+    }
+
+    private fun onAvatarCredentialsUnavailable() {
+        if (!pendingAvatarMode) {
+            return
+        }
+        pendingAvatarMode = false
+        binding.progressBar.visibility = View.GONE
+        Toast.makeText(this, R.string.avatar_mode_error, Toast.LENGTH_SHORT).show()
     }
 
     private fun showAvatarModeInfoDialog() {
@@ -507,20 +583,19 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                 request: WebResourceRequest?,
                 error: WebResourceError?
             ) {
-                if (request?.url?.host.equals("static.cloudflareinsights.com")) {
-                    // 計測用なので無視する
-                    Log.w(TAG, "Ignore loading error for insights")
+                if (request?.isForMainFrame != true) {
+                    // サブリソース（計測用スクリプトなど）の失敗は無視する
+                    Log.w(TAG, "Ignore loading error for sub resource: ${request?.url}")
                     return
                 }
                 Log.e(
                     TAG, "Avatar mode loading error: ${error?.errorCode}, ${error?.description}"
                 )
                 super.onReceivedError(view, request, error)
-                // Handle loading errors
+                // 一時的な失敗でモードを解除せず、再読み込みか戻るキーで復帰できるようにする
                 binding.progressBar.visibility = View.GONE
                 Toast.makeText(this@MainActivity, R.string.avatar_mode_error, Toast.LENGTH_SHORT)
                     .show()
-                toggleAvatarMode(false)
             }
         }
 
@@ -532,10 +607,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                         if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
                             request.grant(arrayOf(PermissionRequest.RESOURCE_AUDIO_CAPTURE))
                         } else {
-                            requestPermissions(
-                                arrayOf(android.Manifest.permission.RECORD_AUDIO),
-                                PERMISSIONS_REQUEST_RECORD_AUDIO
-                            )
+                            requestRecordAudioPermission(request)
                         }
                         return
                     }
@@ -543,14 +615,78 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                 request.deny()
             }
         }
+
+        onBackPressedDispatcher.addCallback(this, avatarModeBackCallback)
+    }
+
+    private fun requestRecordAudioPermission(request: PermissionRequest? = null) {
+        pendingAudioPermissionRequest = request
+        // システムの権限ダイアログの前に、マイクを何のために使うのかを説明する
+        AlertDialog.Builder(this)
+            .setTitle(R.string.avatar_mode_record_audio_rationale_title)
+            .setMessage(R.string.avatar_mode_record_audio_rationale_message)
+            .setPositiveButton(R.string.avatar_mode_record_audio_continue) { _, _ ->
+                recordAudioPermissionLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
+            }
+            .setNegativeButton(R.string.setting_dialog_cancel) { _, _ ->
+                denyPendingAudioPermissionRequest()
+            }
+            .setOnCancelListener { denyPendingAudioPermissionRequest() }
+            .show()
+    }
+
+    private fun denyPendingAudioPermissionRequest() {
+        pendingAudioPermissionRequest?.deny()
+        pendingAudioPermissionRequest = null
+    }
+
+    private fun showRecordAudioPermissionDeniedDialog() {
+        // 一度の拒否ならもう一度要求できる。二度拒否されると権限ダイアログが出ないので設定へ誘導する
+        val canRequestAgain =
+            shouldShowRequestPermissionRationale(android.Manifest.permission.RECORD_AUDIO)
+        val builder = AlertDialog.Builder(this)
+            .setTitle(R.string.avatar_mode_needs_record_audio_permission)
+            .setNegativeButton(R.string.setting_dialog_cancel, null)
+        if (canRequestAgain) {
+            builder.setMessage(R.string.avatar_mode_record_audio_denied_message)
+                .setPositiveButton(R.string.avatar_mode_record_audio_retry) { _, _ ->
+                    requestRecordAudioPermission()
+                }
+        } else {
+            builder.setMessage(R.string.avatar_mode_record_audio_blocked_message)
+                .setPositiveButton(R.string.avatar_mode_record_audio_open_settings) { _, _ ->
+                    openAppPermissionSettings()
+                }
+        }
+        builder.show()
+    }
+
+    private fun openAppPermissionSettings() {
+        try {
+            val uri = Uri.fromParts("package", packageName, null)
+            startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, uri))
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to open the app settings: $e")
+        }
     }
 
     private fun loadAvatarPage() {
+        val restoredUrl = savedAvatarUrl
+        savedAvatarUrl = null
+        if (restoredUrl?.startsWith(BuildConfig.AVATAR_BASE_URL) == true) {
+            Log.d(TAG, "Restore the avatar page: $restoredUrl")
+            loadAvatarUrl(restoredUrl)
+            return
+        }
+        loadAvatarUrl(BuildConfig.AVATAR_BASE_URL)
+    }
+
+    private fun loadAvatarUrl(url: String) {
         val headers = mapOf(
             "CF-Access-Client-Id" to avatarClientId,
             "CF-Access-Client-Secret" to avatarClientSecret
         )
-        webView.loadUrl(BuildConfig.AVATAR_BASE_URL, headers)
+        webView.loadUrl(url, headers)
     }
 
     private fun showUserNameDialog(cancelable: Boolean = true) {
@@ -813,14 +949,25 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     }
 
     private fun toggleAvatarMode(enable: Boolean = !isAvatarMode) {
-        if (::avatarClientId.isInitialized.not() || ::avatarClientSecret.isInitialized.not()) {
-            Log.e(TAG, "Avatar mode initialization error")
-            Toast.makeText(this, R.string.avatar_mode_error, Toast.LENGTH_SHORT).show()
+        if (enable && (avatarClientId.isEmpty() || avatarClientSecret.isEmpty())) {
+            if (avatarCredentialsFailed) {
+                // 取得結果が空だった場合は待っても届かないので、その場でエラーにする
+                Log.e(TAG, "Avatar credentials are unavailable.")
+                Toast.makeText(this, R.string.avatar_mode_error, Toast.LENGTH_SHORT).show()
+                return
+            }
+
+            // 認証情報がまだ届いていないので、待っていることを示して到着後に切り替える
+            Log.w(TAG, "Avatar credentials are not ready yet.")
+            pendingAvatarMode = true
+            binding.progressBar.visibility = View.VISIBLE
+            Toast.makeText(this, R.string.avatar_mode_preparing, Toast.LENGTH_SHORT).show()
             return
         }
 
         isAvatarMode = enable
         setUIMode(this, if (isAvatarMode) UIModeConfig.AVATAR else UIModeConfig.CHAT)
+        avatarModeBackCallback.isEnabled = isAvatarMode
         invalidateOptionsMenu()
 
         if (isAvatarMode) {
@@ -978,29 +1125,26 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         }
     }
 
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        when (requestCode) {
-            PERMISSIONS_REQUEST_RECORD_AUDIO -> {
-                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    webView.reload()
-                } else if (grantResults[0] == PackageManager.PERMISSION_DENIED) {
-                    Toast.makeText(
-                        this,
-                        R.string.avatar_mode_needs_record_audio_permission,
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
-            }
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putBoolean(STATE_AVATAR_MODE, isAvatarMode)
+        if (!isAvatarMode || !::webView.isInitialized) {
+            return
         }
+        // 復帰させられるのは開いていたページまで。ページ内のJS状態（アバターの姿勢や会話の途中）は戻らない。
+        // WebView.saveState() は使わない。モード切り替えで積まれた about:blank まで含む
+        // 前後の履歴が丸ごと戻り、戻るキーでチャットモードに帰れなくなるため。
+        outState.putString(STATE_AVATAR_URL, webView.url)
     }
 
     public override fun onPause() {
         isActivityResumed = false
+        if (::webView.isInitialized) {
+            // バックグラウンドで音声再生や3D描画が続かないように止める。
+            // WebView.pauseTimers() はプロセス内の全WebViewのタイマーを止めてしまうので使わない。
+            // インタースティシャル広告のWebViewまで凍結され、閉じるボタンが出なくなる。
+            webView.onPause()
+        }
         adController.onPause(this)
         super.onPause()
     }
@@ -1008,10 +1152,18 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     public override fun onResume() {
         isActivityResumed = true
         adController.onResume(this)
+        if (::webView.isInitialized) {
+            webView.onResume()
+        }
         super.onResume()
     }
 
     public override fun onDestroy() {
+        if (::webView.isInitialized) {
+            webView.stopLoading()
+            (webView.parent as? ViewGroup)?.removeView(webView)
+            webView.destroy()
+        }
         detectIntent.resetContexts()
         scope.coroutineContext.cancel()
         adController.onDestroy(this)
@@ -1020,5 +1172,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
     companion object {
         val TAG = MainActivity::class.java.name.toString()
+
+        private const val STATE_AVATAR_MODE = "state_avatar_mode"
+        private const val STATE_AVATAR_URL = "state_avatar_url"
     }
 }
