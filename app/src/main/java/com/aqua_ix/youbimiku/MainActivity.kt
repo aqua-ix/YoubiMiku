@@ -51,6 +51,7 @@ import com.aqua_ix.youbimiku.config.AIModelConfig
 import com.aqua_ix.youbimiku.config.FontSizeConfig
 import com.aqua_ix.youbimiku.config.Key
 import com.aqua_ix.youbimiku.config.LanguageConfig
+import com.aqua_ix.youbimiku.config.RemoteConfigProvider
 import com.aqua_ix.youbimiku.config.SharedPreferenceManager
 import com.aqua_ix.youbimiku.config.UIModeConfig
 import com.aqua_ix.youbimiku.config.getAIModel
@@ -77,10 +78,6 @@ import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
-import com.google.firebase.ktx.Firebase
-import com.google.firebase.remoteconfig.FirebaseRemoteConfig
-import com.google.firebase.remoteconfig.ktx.remoteConfig
-import com.google.firebase.remoteconfig.ktx.remoteConfigSettings
 import com.ironsource.mediationsdk.ISBannerSize
 import com.ironsource.mediationsdk.IronSource
 import com.ironsource.mediationsdk.IronSourceBannerLayout
@@ -112,13 +109,17 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     private lateinit var binding: ActivityMainBinding
     private lateinit var detectIntent: DetectIntent
     private lateinit var openAI: OpenAI
-    private lateinit var remoteConfig: FirebaseRemoteConfig
     private lateinit var firebaseDatabase: FirebaseDatabase
     private lateinit var appDatabase: AppDatabase
     private lateinit var navMenu: Menu
     private lateinit var ironSourceBannerLayout: IronSourceBannerLayout
 
     private var isAvatarMode = false
+
+    // 初期化済みの広告ネットワーク。未初期化のSDKにライフサイクルイベントを渡さないために保持する
+    private var initializedAdNetwork: String? = null
+    private var isActivityResumed = false
+
     private lateinit var webView: WebView
     private lateinit var avatarClientId: String
     private lateinit var avatarClientSecret: String
@@ -151,13 +152,14 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         detectIntent = DetectIntent(this, getDialogFlowSession())
 
         initChatView()
-        initRemoteConfig()
         initDatabase()
         showInAppReviewIfNeeded()
 
         setupChat()
         setupWebView()
-        setupAdNetwork()
+
+        // RemoteConfigに依存する初期化は取得完了後にまとめて行う
+        initRemoteConfig()
     }
 
     private fun handleWindowInsets(view: View) {
@@ -177,19 +179,26 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     }
 
     private fun initRemoteConfig() {
-        remoteConfig = Firebase.remoteConfig
-        val configSettings = remoteConfigSettings {
-            minimumFetchIntervalInSeconds = 3600
-        }
-        remoteConfig.setConfigSettingsAsync(configSettings)
-        remoteConfig.setDefaultsAsync(R.xml.remote_config_defaults)
-        remoteConfig.fetchAndActivate().addOnCompleteListener { task ->
-            if (task.isSuccessful) {
-                setupOpenAI()
-            } else {
-                Log.e(TAG, "Failed to fetch remote config.")
+        RemoteConfigProvider.initialize { isFetched ->
+            if (isDestroyed) {
+                return@initialize
             }
+            if (!isFetched) {
+                // 取得に失敗してもデフォルト値・前回キャッシュで初期化を続行する
+                Log.w(TAG, "Remote config is not fetched. Continue with default values.")
+            }
+            onRemoteConfigReady()
         }
+    }
+
+    private fun onRemoteConfigReady() {
+        Log.d(TAG, "Remote config ready: adNetwork=${RemoteConfigProvider.adNetwork}, " +
+                "adDisplayRequestTimes=${RemoteConfigProvider.adDisplayRequestTimes}, " +
+                "openAIEnabled=${RemoteConfigProvider.isOpenAIEnabled}")
+        setupOpenAI()
+        setupAdNetwork()
+        // RemoteConfigの値で表示を切り替えるメニューを作り直す
+        invalidateOptionsMenu()
     }
 
     private fun initDatabase() {
@@ -293,7 +302,11 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             Log.d(TAG, "Ad network is disabled by flavor.")
             return
         }
-        when (remoteConfig.getString(RemoteConfigKey.AD_NETWORK)) {
+        if (initializedAdNetwork != null) {
+            return
+        }
+        val adNetwork = RemoteConfigProvider.adNetwork
+        when (adNetwork) {
             RemoteConfigKey.AdNetwork.IMOBILE -> {
                 initImobileBanner()
                 initImobileInterstitial()
@@ -301,6 +314,55 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
             RemoteConfigKey.AdNetwork.IRONSOURCE -> {
                 initIronSource()
+            }
+
+            else -> {
+                Log.w(TAG, "Ad network is not configured.")
+                return
+            }
+        }
+        initializedAdNetwork = adNetwork
+
+        // 初期化がonResumeより後になる場合があるため、表示中ならSDKに再開を伝える
+        if (isActivityResumed) {
+            resumeAdNetwork()
+        }
+    }
+
+    private fun resumeAdNetwork() {
+        when (initializedAdNetwork) {
+            RemoteConfigKey.AdNetwork.IMOBILE -> {
+                ImobileSdkAd.start(IMOBILE_BANNER_SID)
+            }
+
+            RemoteConfigKey.AdNetwork.IRONSOURCE -> {
+                IronSource.onResume(this)
+            }
+        }
+    }
+
+    private fun pauseAdNetwork() {
+        when (initializedAdNetwork) {
+            RemoteConfigKey.AdNetwork.IMOBILE -> {
+                ImobileSdkAd.stop(IMOBILE_BANNER_SID)
+            }
+
+            RemoteConfigKey.AdNetwork.IRONSOURCE -> {
+                IronSource.onPause(this)
+            }
+        }
+    }
+
+    private fun showInterstitialAd() {
+        when (initializedAdNetwork) {
+            RemoteConfigKey.AdNetwork.IMOBILE -> {
+                Log.d(TAG, "ImobileSdkAd.showAd")
+                ImobileSdkAd.showAd(this, IMOBILE_INTERSTITIAL_SID)
+            }
+
+            RemoteConfigKey.AdNetwork.IRONSOURCE -> {
+                Log.d(TAG, "IronSource.showInterstitial")
+                IronSource.showInterstitial()
             }
         }
     }
@@ -523,7 +585,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     }
 
     private fun setupOpenAI() {
-        if (!remoteConfig.getBoolean(RemoteConfigKey.OPENAI_ENABLED)) {
+        if (RemoteConfigProvider.isOpenAIEnabled != true) {
             Log.e(TAG, "OpenAI is disabled by remote config.")
             onOpenAIError()
             return
@@ -736,8 +798,10 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     }
 
     private fun showAIModelDialog(cancelable: Boolean = true) {
+        // RemoteConfig未取得のうちは選択肢を誤って隠さないようにtrue扱いにする
+        val isOpenAIEnabled = RemoteConfigProvider.isOpenAIEnabled ?: true
         val aiModels = AIModelConfig.entries.filter {
-            it != AIModelConfig.OPEN_AI || remoteConfig.getBoolean(RemoteConfigKey.OPENAI_ENABLED)
+            it != AIModelConfig.OPEN_AI || isOpenAIEnabled
         }.toTypedArray()
         val aiModelNames = aiModels.map { getDisplayName(this, it) }.toTypedArray()
         val currentIndex = aiModels.indexOfFirst { it.name == getAIModel(this) }
@@ -837,8 +901,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     }
 
     private fun showSupportDialog(requireUrls: Boolean = false) {
-        val linksJson = remoteConfig.getString(RemoteConfigKey.SUPPORT_LINKS)
-        val links = parseSupportLinks(linksJson)
+        val links = parseSupportLinks(RemoteConfigProvider.supportLinksJson)
 
         if (requireUrls && links.isEmpty()) return
 
@@ -905,7 +968,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
         menu.findItem(R.id.avatar_mode_reload).isVisible = isAvatarMode
 
-        val hasSupportLinks = parseSupportLinks(remoteConfig.getString(RemoteConfigKey.SUPPORT_LINKS)).isNotEmpty()
+        val hasSupportLinks = parseSupportLinks(RemoteConfigProvider.supportLinksJson).isNotEmpty()
         menu.findItem(R.id.support_developer).isVisible = hasSupportLinks
 
         menu.add(Menu.NONE, 1, Menu.NONE, R.string.avatar_mode)
@@ -1049,25 +1112,16 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                 }
         }
 
-        if (count >= remoteConfig.getDouble(RemoteConfigKey.AD_DISPLAY_REQUEST_TIMES)) {
+        // 未設定・不正値の場合はnullになり、インタースティシャルを表示しない
+        val adDisplayRequestTimes = RemoteConfigProvider.adDisplayRequestTimes
+        if (adDisplayRequestTimes != null && count >= adDisplayRequestTimes) {
             Log.d(TAG, "Ad display request count: $count")
             setOpenAIRequestCount(applicationContext, 0)
-            when (remoteConfig.getString(RemoteConfigKey.AD_NETWORK)) {
-                RemoteConfigKey.AdNetwork.IMOBILE -> {
-                    Log.d(TAG, "ImobileSdkAd.showAd")
-                    ImobileSdkAd.showAd(this, IMOBILE_INTERSTITIAL_SID)
-                }
-
-                RemoteConfigKey.AdNetwork.IRONSOURCE -> {
-                    Log.d(TAG, "IronSource.showInterstitial")
-                    IronSource.showInterstitial()
-                    setOpenAIRequestCount(applicationContext, 0)
-                }
-            }
+            showInterstitialAd()
         }
 
-        val supportTimes = remoteConfig.getDouble(RemoteConfigKey.SUPPORT_DISPLAY_REQUEST_TIMES).toInt()
-        if (supportTimes <= 0 || isSupporter(applicationContext)) return
+        val supportTimes = RemoteConfigProvider.supportDisplayRequestTimes
+        if (supportTimes == null || isSupporter(applicationContext)) return
 
         val supportCount = getSupportRequestCount(applicationContext) + 1
         setSupportRequestCount(applicationContext, supportCount)
@@ -1099,12 +1153,11 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     }
 
     private suspend fun openAITask(text: String) {
-        val maxLength = remoteConfig.getDouble(RemoteConfigKey.MAX_USER_TEXT_LENGTH).toInt()
+        val maxLength = RemoteConfigProvider.maxUserTextLength
         val sendText = if (text.length <= maxLength) text else text.substring(0, maxLength)
         Log.d(TAG, "sendText: $sendText")
 
-        val configTokens = remoteConfig.getDouble(RemoteConfigKey.MAX_TOKENS).toInt()
-        val maxTokens = if (configTokens == 0) null else configTokens
+        val maxTokens = RemoteConfigProvider.maxTokens
 
         val chatCompletionRequest = ChatCompletionRequest(
             model = ModelId(Constants.OPENAI_MODEL),
@@ -1174,35 +1227,21 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     }
 
     public override fun onPause() {
-        when (remoteConfig.getString(RemoteConfigKey.AD_NETWORK)) {
-            RemoteConfigKey.AdNetwork.IMOBILE -> {
-                ImobileSdkAd.stop(IMOBILE_BANNER_SID)
-            }
-
-            RemoteConfigKey.AdNetwork.IRONSOURCE -> {
-                IronSource.onPause(this)
-            }
-        }
+        isActivityResumed = false
+        pauseAdNetwork()
         super.onPause()
     }
 
     public override fun onResume() {
-        when (remoteConfig.getString(RemoteConfigKey.AD_NETWORK)) {
-            RemoteConfigKey.AdNetwork.IMOBILE -> {
-                ImobileSdkAd.start(IMOBILE_BANNER_SID)
-            }
-
-            RemoteConfigKey.AdNetwork.IRONSOURCE -> {
-                IronSource.onResume(this)
-            }
-        }
+        isActivityResumed = true
+        resumeAdNetwork()
         super.onResume()
     }
 
     public override fun onDestroy() {
         detectIntent.resetContexts()
         scope.coroutineContext.cancel()
-        when (remoteConfig.getString(RemoteConfigKey.AD_NETWORK)) {
+        when (initializedAdNetwork) {
             RemoteConfigKey.AdNetwork.IMOBILE -> {
                 ImobileSdkAd.stop(IMOBILE_BANNER_SID)
                 ImobileSdkAd.stop(IMOBILE_INTERSTITIAL_SID)
