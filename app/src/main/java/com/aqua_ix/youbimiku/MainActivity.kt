@@ -180,7 +180,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
     private fun initRemoteConfig() {
         RemoteConfigProvider.initialize { isFetched ->
-            if (isDestroyed) {
+            if (isDestroyed || isFinishing) {
                 return@initialize
             }
             if (!isFetched) {
@@ -323,8 +323,9 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         }
         initializedAdNetwork = adNetwork
 
-        // 初期化がonResumeより後になる場合があるため、表示中ならSDKに再開を伝える
-        if (isActivityResumed) {
+        // 初期化がonResumeより後になる場合があるため、表示中ならSDKに再開を伝える。
+        // iMobileはinitImobileBanner()内でstart()済みなので、ここではIronSourceだけを対象にする。
+        if (isActivityResumed && adNetwork == RemoteConfigKey.AdNetwork.IRONSOURCE) {
             resumeAdNetwork()
         }
     }
