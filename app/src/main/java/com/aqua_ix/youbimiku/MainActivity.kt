@@ -73,6 +73,7 @@ import com.google.android.play.core.review.ReviewManagerFactory
 import com.google.api.gax.rpc.UnavailableException
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
+import com.google.firebase.database.DatabaseReference
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
 import kotlinx.coroutines.CancellationException
@@ -97,7 +98,9 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     private lateinit var binding: ActivityMainBinding
     private lateinit var detectIntent: DetectIntent
 
-    // 初期化はRemoteConfigとFirebaseの取得後になるため、未初期化を判別できるようにnullableで持つ
+    // 初期化はRemoteConfigとFirebaseの取得後になるため、未初期化を判別できるようにnullableで持つ。
+    // メインスレッドで入れ替えてコルーチンからも読むため@Volatileにする
+    @Volatile
     private var openAI: OpenAI? = null
     private lateinit var firebaseDatabase: FirebaseDatabase
     private lateinit var appDatabase: AppDatabase
@@ -109,8 +112,20 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     // 広告の初期化はRemoteConfigの取得完了後になるため、onResume済みかどうかを保持する
     private var isActivityResumed = false
 
+    // Firebaseのリスナは解除しないとActivityの破棄後も保持され続けるため、
+    // onDestroyで外せるように参照を持つ
+    private var openAIReference: DatabaseReference? = null
+    private var openAIListener: ValueEventListener? = null
+    private var avatarCredentialsReference: DatabaseReference? = null
+    private var avatarCredentialsListener: ValueEventListener? = null
+
     private lateinit var webView: WebView
+
+    // メインスレッドで受け取ってWebViewのスレッドから読むため@Volatileにする
+    @Volatile
     private var avatarClientId = ""
+
+    @Volatile
     private var avatarClientSecret = ""
 
     // 認証情報の到着を待っているアバターモードへの切り替え要求
@@ -134,7 +149,9 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             // 触ると実行中のリクエストの状態を壊すため、ログだけに留める
             Log.e(TAG, "Unhandled error", throwable)
         }
-    private val scope = CoroutineScope(Dispatchers.Default + job + exceptionHandler)
+    // 履歴の読み書き・AI応答の取得・報告の送信はいずれもブロッキングI/Oなので、
+    // スレッド数の少ないDispatchers.Defaultではなくディスク・通信向けのIOで実行する
+    private val scope = CoroutineScope(Dispatchers.IO + job + exceptionHandler)
 
     // 応答待ちかどうか。判定と更新をメインスレッドに揃えて、連続送信で競合しないようにする
     private var isSending = false
@@ -190,7 +207,10 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         actionBarSize = android.util.TypedValue.complexToDimensionPixelSize(tv.data, resources.displayMetrics)
         handleWindowInsets(view)
 
-        detectIntent = DetectIntent(this, getDialogFlowSession())
+        // 認証情報の読み込みとgRPCクライアントの生成は初回送信時まで遅延されるため、
+        // ここでの生成は起動時間に乗らない。Activityより長生きするので
+        // applicationContextを渡して参照を残さないようにする
+        detectIntent = DetectIntent(applicationContext, getDialogFlowSession())
 
         // 旧キーに残っている広告表示用のメッセージ数を引き継ぐ
         migrateMessageCountForAd(applicationContext)
@@ -435,25 +455,57 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         }
 
         val reference = firebaseDatabase.getReference("secrets/openai")
-        reference.addValueEventListener(object : ValueEventListener {
+        val listener = object : ValueEventListener {
             override fun onDataChange(dataSnapshot: DataSnapshot) {
                 val apiKey = dataSnapshot.child("apiKey").getValue(String::class.java)
                 val orgId = dataSnapshot.child("orgId").getValue(String::class.java)
 
-                apiKey?.let {
-                    val config = OpenAIConfig(token = it, organization = orgId)
-                    openAI = OpenAI(config)
-                } ?: run {
+                val key = apiKey
+                if (key == null) {
                     Log.e(TAG, "apiKey is null.")
                     onOpenAIError()
+                    return
                 }
+                createOpenAI(key, orgId)
             }
 
             override fun onCancelled(databaseError: DatabaseError) {
                 Log.e(TAG, "Database error: ${databaseError.message}")
                 onOpenAIError()
             }
-        })
+        }
+
+        // 呼び出しが複数回になっても重ねて登録しないよう、前のリスナを外してから登録する
+        removeOpenAIListener()
+        openAIReference = reference
+        openAIListener = listener
+        reference.addValueEventListener(listener)
+    }
+
+    /**
+     * OpenAIのクライアントを生成する。
+     *
+     * 生成時にHTTPエンジンの探索（APKの走査）が走り数百msかかるため、
+     * メインスレッドでは行わない。差し替えはメインスレッドに揃えて、
+     * 送信可否の判定（canSendRequest）と食い違わないようにする。
+     */
+    private fun createOpenAI(apiKey: String, orgId: String?) {
+        scope.launch {
+            val client = OpenAI(OpenAIConfig(token = apiKey, organization = orgId))
+            withContext(Dispatchers.Main) {
+                if (isDestroyed || isFinishing) {
+                    return@withContext
+                }
+                openAI = client
+                Log.d(TAG, "OpenAI is ready.")
+            }
+        }
+    }
+
+    private fun removeOpenAIListener() {
+        openAIListener?.let { openAIReference?.removeEventListener(it) }
+        openAIListener = null
+        openAIReference = null
     }
 
     private fun setupChat() {
@@ -473,7 +525,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         }
 
         val cfReference = firebaseDatabase.getReference("secrets/cloudflare")
-        cfReference.addValueEventListener(object : ValueEventListener {
+        val cfListener = object : ValueEventListener {
             override fun onDataChange(dataSnapshot: DataSnapshot) {
                 avatarClientId = dataSnapshot.child("clientId").getValue(String::class.java) ?: ""
                 avatarClientSecret =
@@ -501,7 +553,18 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                 avatarCredentialsFailed = true
                 onAvatarCredentialsUnavailable()
             }
-        })
+        }
+
+        removeAvatarCredentialsListener()
+        avatarCredentialsReference = cfReference
+        avatarCredentialsListener = cfListener
+        cfReference.addValueEventListener(cfListener)
+    }
+
+    private fun removeAvatarCredentialsListener() {
+        avatarCredentialsListener?.let { avatarCredentialsReference?.removeEventListener(it) }
+        avatarCredentialsListener = null
+        avatarCredentialsReference = null
     }
 
     private fun onAvatarCredentialsUnavailable() {
@@ -558,29 +621,50 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                     return super.shouldInterceptRequest(view, request)
                 }
 
-                val headers = mapOf(
-                    "CF-Access-Client-Id" to avatarClientId,
-                    "CF-Access-Client-Secret" to avatarClientSecret
-                )
+                val method = request?.method ?: METHOD_GET
+                if (!method.equals(METHOD_GET, ignoreCase = true)) {
+                    // インターセプトではリクエストボディを受け取れないため、
+                    // メソッドを変えて壊してしまわないようWebViewにそのまま任せる
+                    return super.shouldInterceptRequest(view, request)
+                }
 
+                var connection: HttpURLConnection? = null
                 return try {
-                    val connection = URL(url).openConnection() as HttpURLConnection
-                    headers.forEach { connection.setRequestProperty(it.key, it.value) }
-                    connection.connect()
+                    connection = (URL(url).openConnection() as HttpURLConnection).apply {
+                        requestMethod = METHOD_GET
+                        // 応答が返らないまま読み込みが終わらなくならないよう上限を設ける
+                        connectTimeout = WEB_REQUEST_CONNECT_TIMEOUT_MS
+                        readTimeout = WEB_REQUEST_READ_TIMEOUT_MS
+                        // 元のリクエストのヘッダを引き継いだうえで認証ヘッダを足す
+                        request?.requestHeaders?.forEach { (name, value) ->
+                            if (SKIPPED_REQUEST_HEADERS.none { it.equals(name, true) }) {
+                                setRequestProperty(name, value)
+                            }
+                        }
+                        setRequestProperty(HEADER_CF_CLIENT_ID, avatarClientId)
+                        setRequestProperty(HEADER_CF_CLIENT_SECRET, avatarClientSecret)
+                        connect()
+                    }
 
                     // レスポンスヘッダーには Cloudflare Access の認証トークンが含まれるため出力しない
                     Log.d(
                         TAG,
-                        "WebResourceResponse: ${connection.responseCode}, ${connection.contentType}, ${connection.contentEncoding}"
+                        "WebResourceResponse: ${connection.responseCode}, ${connection.contentType}"
                     )
 
+                    // Content-Typeは "text/html; charset=utf-8" の形で返るため、
+                    // MIMEタイプと文字コードに分けて渡す（そのまま渡すと種別が判別されない）
+                    val contentType = connection.contentType
                     WebResourceResponse(
-                        connection.contentType,
-                        connection.contentEncoding ?: "utf-8",
+                        parseMimeType(contentType),
+                        parseCharset(contentType) ?: DEFAULT_CHARSET,
                         connection.inputStream
                     )
                 } catch (e: Exception) {
                     Log.e(TAG, "WebResourceResponse error: $e")
+                    // 応答を返せない場合は接続を残さない（成功時はWebViewが
+                    // ストリームを読み終えるまで閉じられないのでここでは閉じない）
+                    connection?.disconnect()
                     return super.shouldInterceptRequest(view, request)
                 }
             }
@@ -1373,10 +1457,31 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             (webView.parent as? ViewGroup)?.removeView(webView)
             webView.destroy()
         }
-        detectIntent.resetContexts()
+        removeOpenAIListener()
+        removeAvatarCredentialsListener()
         scope.coroutineContext.cancel()
+        if (::detectIntent.isInitialized) {
+            // コンテキストの破棄はgRPCの通信になるためメインスレッドでは行えない。
+            // Activityの終了後にアプリスコープで実行される
+            detectIntent.shutdown()
+        }
         adController.onDestroy(this)
         super.onDestroy()
+    }
+
+    /** "text/html; charset=utf-8" のようなContent-TypeからMIMEタイプだけを取り出す */
+    private fun parseMimeType(contentType: String?): String? {
+        return contentType?.substringBefore(';')?.trim()?.takeIf { it.isNotEmpty() }
+    }
+
+    /** Content-Typeから文字コードを取り出す。指定がない場合はnull */
+    private fun parseCharset(contentType: String?): String? {
+        return contentType?.split(';')
+            ?.map { it.trim() }
+            ?.firstOrNull { it.startsWith("charset=", ignoreCase = true) }
+            ?.substringAfter('=')
+            ?.trim('"', ' ')
+            ?.takeIf { it.isNotEmpty() }
     }
 
     companion object {
@@ -1387,5 +1492,29 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
         // 例外の原因を辿る深さの上限。cause が循環していても止まるようにする
         private const val MAX_CAUSE_DEPTH = 10
+
+        // アバターページのアセット取得に使うタイムアウト
+        private const val WEB_REQUEST_CONNECT_TIMEOUT_MS = 15_000
+        private const val WEB_REQUEST_READ_TIMEOUT_MS = 30_000
+
+        private const val METHOD_GET = "GET"
+        private const val DEFAULT_CHARSET = "utf-8"
+        private const val HEADER_CF_CLIENT_ID = "CF-Access-Client-Id"
+        private const val HEADER_CF_CLIENT_SECRET = "CF-Access-Client-Secret"
+
+        /**
+         * 引き継がないリクエストヘッダ。
+         *
+         * Accept-EncodingはHttpURLConnectionが自分で付けたときだけ透過的に解凍されるため、
+         * こちらから指定すると圧縮されたままWebViewに渡ってしまう。
+         * 条件付きリクエストのヘッダは304・206をWebResourceResponseで表現できず、
+         * 中身のない応答になってしまうため送らない。
+         */
+        private val SKIPPED_REQUEST_HEADERS = setOf(
+            "Accept-Encoding",
+            "If-Modified-Since",
+            "If-None-Match",
+            "Range",
+        )
     }
 }

@@ -6,10 +6,30 @@ import android.content.SharedPreferences
 open class SharedPreferenceManager {
 
     companion object {
+        // getSharedPreferencesは呼ぶたびに保存先の存在確認でディスクを見るため、
+        // 取得したインスタンスを保持して使い回す。読み書きはどのスレッドからも
+        // 行われるので@Volatileにする
+        @Volatile
+        private var preferences: SharedPreferences? = null
+
         private fun instance(context: Context): SharedPreferences {
+            return preferences ?: synchronized(this) {
+                preferences ?: createPreferences(context).also { preferences = it }
+            }
+        }
+
+        private fun createPreferences(context: Context): SharedPreferences {
             val name = context.packageName + "_preferences"
             val mode = Context.MODE_PRIVATE
-            return context.getSharedPreferences(name, mode)
+            return context.applicationContext.getSharedPreferences(name, mode)
+        }
+
+        /**
+         * 設定ファイルの読み込みを先に済ませておく。
+         * 初回アクセスはディスクI/Oを伴うため、メインスレッドで待たされないようにする。
+         */
+        fun warmUp(context: Context) {
+            instance(context).all
         }
 
         fun get(context: Context, key: String, defValue: String): String? {
