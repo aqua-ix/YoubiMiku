@@ -42,7 +42,7 @@ Single-module Android app with an activity-centric architecture. Nearly all UI l
 - **Config**: `config/` package — type-safe enums for AI model, font size, language, UI mode; `SharedPreferenceManager` wraps SharedPreferences; `RemoteConfigProvider` wraps Firebase RemoteConfig, which controls feature flags
 - **Data**: Room database (`database/` package) stores chat messages; Firebase Realtime DB stores API keys and credentials at runtime
 - **Ads**: `ads/` package — `AdController` interface in `main`, implementations per flavor
-- **Utilities**: `TranslateUtil` (EN↔JP translation via HTTP), `ReportUtil` (message reporting)
+- **Utilities**: `HttpClientProvider` (the shared HTTP client), `TranslateUtil` (EN↔JP translation), `ReportUtil` (message reporting) — see [Networking](#networking)
 
 ### Configuration System
 
@@ -57,6 +57,21 @@ Blocking I/O must not run on the main thread.
 - Cleanup that has to outlive the Activity runs on `Application.applicationScope` (a process-lifetime `SupervisorJob` + `Dispatchers.IO` scope): `DetectIntent.shutdown()` resets the Dialogflow contexts (a blocking gRPC call) and closes both clients, and does nothing when they were never created.
 - Firebase Realtime Database listeners registered in `setupOpenAI()` / `setupChat()` are kept in fields and removed in `onDestroy()`.
 - Debug builds enable `StrictMode`'s thread policy (`detectAll().penaltyLog()`), so main thread disk/network access is visible in logcat. The app's own code is expected to produce no violations; the IronSource SDK produces several in the `ads` flavor (`IronSource.init()` reads its preferences and files synchronously on the main thread).
+
+### Networking
+
+Translation and message reporting share one Ktor client (`HttpClientProvider`), created lazily with the OkHttp engine. Ktor and that engine are already on the classpath for the OpenAI client, so no dependency is added, and naming the engine explicitly avoids the APK scan that picking one by `ServiceLoader` costs (see [Threading](#threading)). The client sets connect/socket/request timeouts, so a stalled network cannot block a coroutine indefinitely.
+
+Redirects are left to OkHttp (`followRedirects = false` on the Ktor side, `followRedirects(true)` on the engine): both endpoints are Google Apps Script and answer every request — GET and POST alike — with a 302 whose target only accepts GET. Ktor's `HttpRedirect` does not follow redirects for POST at all, and following one with the method preserved returns 405; OkHttp downgrades a 302 to GET as the HTTP spec says.
+
+`TranslateUtil` builds its query with `parameter()`, which encodes the value, and returns `Result<String>`:
+
+- Concatenating the text into the URL broke on `&` (`tea & coffee` reached the endpoint as `tea `), on `#` (everything from it, including `target`, was dropped) and on `+` (decoded as a space). Non-ASCII and spaces happened to survive only because Android's `HttpURLConnection` is backed by OkHttp, which canonicalizes the URL.
+- Returning `getString(R.string.message_error)` as the "translation" made a failure indistinguishable from a result: it was sent to Dialogflow as the user's message, shown as Miku's reply, and stored in the history. `DetectIntent.request()` now unwraps with `getOrThrow()` and lets `MainActivity.runAITask()` show it as an error instead.
+
+`ReportUtil` builds its payload with `JSONObject` and declares `POST` explicitly instead of relying on `doOutput`. String concatenation produced invalid JSON for any name, message or reason containing `"`, `\` or a newline, and Apps Script answers invalid JSON with an error *page* under status 200 — so the report was dropped while the user saw the success toast.
+
+`MainActivity.shouldInterceptRequest()` keeps its own `HttpURLConnection` for the avatar page's assets: `WebView` wants a synchronous `InputStream` that it reads at its own pace, so the connection has to outlive the call and cannot be wrapped in a suspending client.
 
 ### Database
 
