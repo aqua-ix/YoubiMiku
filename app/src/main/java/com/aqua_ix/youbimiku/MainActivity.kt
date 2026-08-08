@@ -103,6 +103,10 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     // メインスレッドで入れ替えてコルーチンからも読むため@Volatileにする
     @Volatile
     private var openAI: OpenAI? = null
+
+    // 生成に使った認証情報。リスナは初回とキャッシュ・再同期で複数回呼ばれるので、
+    // 同じ値での作り直しを避けるために覚えておく（メインスレッドからのみ触る）
+    private var openAICredentials: Pair<String, String?>? = null
     private lateinit var firebaseDatabase: FirebaseDatabase
     private lateinit var appDatabase: AppDatabase
     private lateinit var navMenu: Menu
@@ -283,6 +287,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
     private fun onOpenAIError() {
         openAI = null
+        // 同じ認証情報でも作り直せるようにする
+        openAICredentials = null
         // 応答待ちの状態はここでは触らない。実行中のリクエストはrunAITaskのfinallyが
         // 必ず解除するので、割り込んで解除するとあとから届いた応答が新しい会話に混ざる
         showErrorMessage(getString(R.string.message_error_openai))
@@ -491,6 +497,12 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
      * 送信可否の判定（canSendRequest）と食い違わないようにする。
      */
     private fun createOpenAI(apiKey: String, orgId: String?) {
+        val credentials = apiKey to orgId
+        if (openAICredentials == credentials) {
+            // 同じ認証情報で作り直しても意味がないので、重い生成を繰り返さない
+            return
+        }
+        openAICredentials = credentials
         scope.launch {
             val client = try {
                 OpenAI(OpenAIConfig(token = apiKey, organization = orgId))
@@ -504,6 +516,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                     if (isDestroyed || isFinishing) {
                         return@withContext
                     }
+                    // onOpenAIErrorが記録した認証情報を消すので、次の通知で作り直せる
                     onOpenAIError()
                 }
                 return@launch
