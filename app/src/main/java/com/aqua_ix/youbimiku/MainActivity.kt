@@ -1126,9 +1126,10 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     public override fun onPause() {
         isActivityResumed = false
         if (::webView.isInitialized) {
-            // バックグラウンドで音声再生や3D描画が続かないように止める
+            // バックグラウンドで音声再生や3D描画が続かないように止める。
+            // WebView.pauseTimers() はプロセス内の全WebViewのタイマーを止めてしまうので使わない。
+            // インタースティシャル広告のWebViewまで凍結され、閉じるボタンが出なくなる。
             webView.onPause()
-            webView.pauseTimers()
         }
         adController.onPause(this)
         super.onPause()
@@ -1138,7 +1139,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         isActivityResumed = true
         adController.onResume(this)
         if (::webView.isInitialized) {
-            webView.resumeTimers()
             webView.onResume()
         }
         super.onResume()
