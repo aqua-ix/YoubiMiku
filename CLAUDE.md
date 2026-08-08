@@ -26,8 +26,8 @@ YoubiMiku (ユビキタ初音ミク) is an Android chat application where users 
 ## Build Configuration
 
 - **Kotlin 1.9.23**, **AGP 8.7.2**, **JDK 17** (Temurin in CI), Java target 1.8
-- **Compile/Target SDK 35**, Min SDK 23
-- **Two product flavors**: `ads` (with ad SDKs) and `noAds` (ad-free)
+- **Compile/Target SDK 36**, Min SDK 23
+- **Two product flavors**: `ads` (with ad SDKs) and `noAds` (ad-free), each with its own source set (`app/src/ads/`, `app/src/noAds/`) and manifest
 - Namespace: `com.aqua_ix.youbimiku`
 - ViewBinding enabled, Room schema exported via KSP
 
@@ -41,6 +41,7 @@ Single-module Android app with an activity-centric architecture. Nearly all UI l
 - **AI Integration**: `DetectIntent.kt` (DialogFlow v2), OpenAI via `com.aallam.openai` library
 - **Config**: `config/` package — type-safe enums for AI model, font size, language, UI mode; `SharedPreferenceManager` wraps SharedPreferences; `RemoteConfigProvider` wraps Firebase RemoteConfig, which controls feature flags
 - **Data**: Room database (`database/` package) stores chat messages; Firebase Realtime DB stores API keys and credentials at runtime
+- **Ads**: `ads/` package — `AdController` interface in `main`, implementations per flavor
 - **Utilities**: `TranslateUtil` (EN↔JP translation via HTTP), `ReportUtil` (message reporting)
 
 ### Configuration System
@@ -53,7 +54,9 @@ Room ORM with a single `MessageEntity` table. Two schema versions with auto-migr
 
 ### Ad Integration
 
-Two ad networks (iMobile, IronSource) switchable via RemoteConfig. The `ads` flavor includes ad SDKs; `noAds` flavor excludes them. Interstitial ads trigger after a configurable message count.
+Two ad networks (iMobile, IronSource) switchable via RemoteConfig. Interstitial ads trigger after a configurable message count.
+
+Ad SDKs are declared with the `adsImplementation` configuration, so only the `ads` flavor bundles them. `MainActivity` never references ad SDK classes directly: it goes through the `AdController` interface (`ads/AdController.kt` in the `main` source set) and obtains an instance from `AdControllerFactory`, which is defined per flavor — `AdNetworkController` (iMobile/IronSource) in `app/src/ads/`, `NoOpAdController` in `app/src/noAds/`. The `noAds` manifest also removes the `AD_ID` permission that dependencies merge in.
 
 ## Deploy to Device (WSL)
 
