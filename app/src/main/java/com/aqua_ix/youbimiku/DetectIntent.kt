@@ -60,7 +60,14 @@ class DetectIntent(
         val credentials = context.resources.openRawResource(R.raw.dialogflow_secret).use {
             GoogleCredentials.fromStream(it).createScoped(SCOPE)
         }
-        return Clients(createSessions(credentials), createContexts(credentials))
+        val sessions = createSessions(credentials)
+        return try {
+            Clients(sessions, createContexts(credentials))
+        } catch (e: Exception) {
+            // 片方だけ生成された状態で失敗すると閉じる機会がなくなる
+            sessions.close()
+            throw e
+        }
     }
 
     private fun createSessions(credentials: GoogleCredentials): SessionsClient {
