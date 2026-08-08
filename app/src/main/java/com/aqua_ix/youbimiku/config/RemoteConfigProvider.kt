@@ -11,9 +11,13 @@ import com.google.firebase.remoteconfig.ktx.remoteConfigSettings
 /**
  * RemoteConfigの値取得を隠す薄いラッパー。
  *
- * デフォルト値の適用とfetchが完了するまでは[isReady]がfalseになり、
- * 各getterは「未取得」をnullで返す。値が不正な場合も同様にnullを返すため、
- * 呼び出し側は「未取得・未設定・不正値」をまとめて扱える。
+ * デフォルト値の適用が終わるまでは各getterが「未取得」をnullで返す。
+ * 値が未設定・不正な場合も同様にnullを返すため、呼び出し側は
+ * 「未取得・未設定・不正値」をまとめて扱える。
+ *
+ * デフォルト値の適用後・fetch完了前は、デフォルト値または前回activateされた
+ * キャッシュを返す（fetchを待たずに読んでも、組み込みの初期値である
+ * 空文字・0・falseではなくremote_config_defaults.xmlの値が使われる）。
  */
 object RemoteConfigProvider {
 
@@ -31,13 +35,8 @@ object RemoteConfigProvider {
 
     private val remoteConfig: FirebaseRemoteConfig by lazy { Firebase.remoteConfig }
 
-    /** デフォルト値の適用が完了し、値を読み出せる状態かどうか */
-    var isReady = false
-        private set
-
-    /** 最後のfetchが成功したかどうか（falseの場合はデフォルト値かキャッシュで動作している） */
-    var isFetched = false
-        private set
+    // デフォルト値が適用され、各getterが意味のある値を返せる状態かどうか
+    private var isDefaultsApplied = false
 
     /**
      * デフォルト値を適用したうえでfetchを試み、完了後に[onReady]を呼ぶ。
@@ -54,9 +53,8 @@ object RemoteConfigProvider {
         // setDefaultsAsync完了前に値を読むと組み込みの初期値（空文字・0・false）が返るため、
         // デフォルト値の適用を待ってからfetchする
         remoteConfig.setDefaultsAsync(R.xml.remote_config_defaults).addOnCompleteListener {
-            isReady = true
+            isDefaultsApplied = true
             remoteConfig.fetchAndActivate().addOnCompleteListener { task ->
-                isFetched = task.isSuccessful
                 if (!task.isSuccessful) {
                     Log.e(TAG, "Failed to fetch remote config. Fall back to defaults.", task.exception)
                 }
@@ -67,11 +65,11 @@ object RemoteConfigProvider {
 
     /** 未取得・未設定・未知の広告ネットワークの場合はnull */
     val adNetwork: String?
-        get() = if (isReady) parseAdNetwork(remoteConfig.getString(RemoteConfigKey.AD_NETWORK)) else null
+        get() = if (isDefaultsApplied) parseAdNetwork(remoteConfig.getString(RemoteConfigKey.AD_NETWORK)) else null
 
     /** 未取得・未設定・0以下の場合はnull（インタースティシャルを表示しない） */
     val adDisplayRequestTimes: Int?
-        get() = if (isReady) {
+        get() = if (isDefaultsApplied) {
             parsePositiveCount(remoteConfig.getDouble(RemoteConfigKey.AD_DISPLAY_REQUEST_TIMES))
         } else {
             null
@@ -79,7 +77,7 @@ object RemoteConfigProvider {
 
     /** 未取得・未設定・0以下の場合はnull（支援ダイアログを表示しない） */
     val supportDisplayRequestTimes: Int?
-        get() = if (isReady) {
+        get() = if (isDefaultsApplied) {
             parsePositiveCount(remoteConfig.getDouble(RemoteConfigKey.SUPPORT_DISPLAY_REQUEST_TIMES))
         } else {
             null
@@ -87,11 +85,11 @@ object RemoteConfigProvider {
 
     /** 未取得の場合はnull（呼び出し側で「隠さない」などのフォールバックを選べるようにする） */
     val isOpenAIEnabled: Boolean?
-        get() = if (isReady) remoteConfig.getBoolean(RemoteConfigKey.OPENAI_ENABLED) else null
+        get() = if (isDefaultsApplied) remoteConfig.getBoolean(RemoteConfigKey.OPENAI_ENABLED) else null
 
     /** 未取得・不正値の場合はフォールバック値（0を返すと入力が全て切り捨てられるため） */
     val maxUserTextLength: Int
-        get() = if (isReady) {
+        get() = if (isDefaultsApplied) {
             parsePositiveCount(remoteConfig.getDouble(RemoteConfigKey.MAX_USER_TEXT_LENGTH))
                 ?: FALLBACK_MAX_USER_TEXT_LENGTH
         } else {
@@ -100,11 +98,11 @@ object RemoteConfigProvider {
 
     /** 未取得・未設定・0以下の場合はnull（上限を指定しない） */
     val maxTokens: Int?
-        get() = if (isReady) parsePositiveCount(remoteConfig.getDouble(RemoteConfigKey.MAX_TOKENS)) else null
+        get() = if (isDefaultsApplied) parsePositiveCount(remoteConfig.getDouble(RemoteConfigKey.MAX_TOKENS)) else null
 
     /** 未取得・未設定の場合は空のJSON配列 */
     val supportLinksJson: String
-        get() = if (isReady) {
+        get() = if (isDefaultsApplied) {
             remoteConfig.getString(RemoteConfigKey.SUPPORT_LINKS).takeIf { it.isNotBlank() } ?: EMPTY_JSON_ARRAY
         } else {
             EMPTY_JSON_ARRAY
