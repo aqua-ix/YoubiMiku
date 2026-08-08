@@ -41,12 +41,19 @@ jobs:
           # --comment is required: without it the plugin prints the review to the
           # terminal only and never posts anything to the pull request.
           prompt: '/code-review:code-review ${{ github.repository }}/pull/${{ github.event.pull_request.number }} --comment'
-          # The code-review plugin fans out to parallel review subagents (Task),
-          # keeps a todo list (TodoWrite), reads CLAUDE.md and source files
-          # (Read/Grep/Glob) and inspects history (git blame/log/diff/show).
-          # --allowedTools denies everything not listed, so all of these must be
-          # enumerated or the plugin gets blocked and produces no comments.
-          claude_args: >-
-            --allowedTools "Task,TodoWrite,Read,Grep,Glob,mcp__github_inline_comment__create_inline_comment,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr list:*),Bash(gh pr comment:*),Bash(gh issue view:*),Bash(gh issue list:*),Bash(gh search:*),Bash(git blame:*),Bash(git log:*),Bash(git diff:*),Bash(git show:*),Bash(git rev-parse:*)"
+          # --allowedTools denies everything it does not list, so every tool the
+          # plugin reaches for has to be named here or the review is blocked and
+          # posts nothing. The plugin needs:
+          #   Skill            invoking the /code-review:code-review command itself
+          #   Agent            launching the review subagents (Task in older CLIs)
+          #   Task*/TodoWrite  the todo list the command asks for
+          #   Read/Grep/Glob   reading CLAUDE.md and the changed sources
+          #   git blame/log/…  the history analysis agent
+          #   gh pr/issue/…    everything the command's own frontmatter declares
+          # Agent is the current name: Claude Code 2.1.225 resolves the subagent
+          # tool to "Agent", so allowing only "Task" denied all seven launches.
+          claude_args: |
+            --allowedTools "Skill,Agent,Task,TodoWrite,TaskCreate,TaskUpdate,TaskList,Read,Grep,Glob,mcp__github_inline_comment__create_inline_comment,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr list:*),Bash(gh pr comment:*),Bash(gh issue view:*),Bash(gh issue list:*),Bash(gh search:*),Bash(git blame:*),Bash(git log:*),Bash(git diff:*),Bash(git show:*),Bash(git rev-parse:*)"
+            --append-system-prompt "Launch every subagent synchronously. Never pass run_in_background or name to the Agent tool, and never end your turn waiting for a background agent's notification: this is a single headless run, so that notification never arrives and the review is lost."
           # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
           # or https://code.claude.com/docs/en/cli-reference for available options

@@ -45,5 +45,6 @@ jobs:
           # Tag mode already injects Read/Grep/Glob/LS plus its own MCP tools and
           # merges them with this list, so only the extras it does not provide are
           # named here: subagents, a todo list and read-only git/gh inspection.
+          # Agent, not Task, is the subagent tool in current Claude Code.
           claude_args: >-
-            --allowedTools "Task,TodoWrite,mcp__github_inline_comment__create_inline_comment,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr list:*),Bash(gh pr comment:*),Bash(gh issue view:*),Bash(gh issue list:*),Bash(gh run view:*),Bash(gh run list:*),Bash(gh search:*),Bash(git blame:*),Bash(git log:*),Bash(git diff:*),Bash(git show:*),Bash(git rev-parse:*)"
+            --allowedTools "Skill,Agent,Task,TodoWrite,TaskCreate,TaskUpdate,TaskList,mcp__github_inline_comment__create_inline_comment,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr list:*),Bash(gh pr comment:*),Bash(gh issue view:*),Bash(gh issue list:*),Bash(gh run view:*),Bash(gh run list:*),Bash(gh search:*),Bash(git blame:*),Bash(git log:*),Bash(git diff:*),Bash(git show:*),Bash(git rev-parse:*)"
