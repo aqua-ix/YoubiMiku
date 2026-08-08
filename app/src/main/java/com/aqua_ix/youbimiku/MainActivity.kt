@@ -10,12 +10,10 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
-import android.view.Gravity
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
-import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.webkit.PermissionRequest
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
@@ -23,14 +21,12 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.updateLayoutParams
 import androidx.core.view.updatePadding
 import androidx.room.Room
 import com.aallam.openai.api.chat.ChatCompletionRequest
@@ -40,13 +36,8 @@ import com.aallam.openai.api.core.FinishReason
 import com.aallam.openai.api.model.ModelId
 import com.aallam.openai.client.OpenAI
 import com.aallam.openai.client.OpenAIConfig
-import com.aqua_ix.youbimiku.BuildConfig.BUILD_TYPE
-import com.aqua_ix.youbimiku.BuildConfig.FLAVOR
-import com.aqua_ix.youbimiku.BuildConfig.IMOBILE_BANNER_SID
-import com.aqua_ix.youbimiku.BuildConfig.IMOBILE_INTERSTITIAL_SID
-import com.aqua_ix.youbimiku.BuildConfig.IMOBILE_MID
-import com.aqua_ix.youbimiku.BuildConfig.IMOBILE_PID
-import com.aqua_ix.youbimiku.BuildConfig.IRONSOURCE_APP_KEY
+import com.aqua_ix.youbimiku.ads.AdController
+import com.aqua_ix.youbimiku.ads.AdControllerFactory
 import com.aqua_ix.youbimiku.config.AIModelConfig
 import com.aqua_ix.youbimiku.config.FontSizeConfig
 import com.aqua_ix.youbimiku.config.Key
@@ -81,17 +72,6 @@ import com.google.firebase.ktx.Firebase
 import com.google.firebase.remoteconfig.FirebaseRemoteConfig
 import com.google.firebase.remoteconfig.ktx.remoteConfig
 import com.google.firebase.remoteconfig.ktx.remoteConfigSettings
-import com.ironsource.mediationsdk.ISBannerSize
-import com.ironsource.mediationsdk.IronSource
-import com.ironsource.mediationsdk.IronSourceBannerLayout
-import com.ironsource.mediationsdk.adunit.adapter.utility.AdInfo
-import com.ironsource.mediationsdk.integration.IntegrationHelper
-import com.ironsource.mediationsdk.logger.IronSourceError
-import com.ironsource.mediationsdk.sdk.LevelPlayBannerListener
-import com.ironsource.mediationsdk.sdk.LevelPlayInterstitialListener
-import jp.co.imobile.sdkads.android.FailNotificationReason
-import jp.co.imobile.sdkads.android.ImobileSdkAd
-import jp.co.imobile.sdkads.android.ImobileSdkAdListener
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -116,7 +96,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     private lateinit var firebaseDatabase: FirebaseDatabase
     private lateinit var appDatabase: AppDatabase
     private lateinit var navMenu: Menu
-    private lateinit var ironSourceBannerLayout: IronSourceBannerLayout
+    private val adController: AdController = AdControllerFactory.create()
 
     private var isAvatarMode = false
     private lateinit var webView: WebView
@@ -289,176 +269,15 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     }
 
     private fun setupAdNetwork() {
-        if (FLAVOR == "noAds") {
-            Log.d(TAG, "Ad network is disabled by flavor.")
-            return
-        }
-        when (remoteConfig.getString(RemoteConfigKey.AD_NETWORK)) {
-            RemoteConfigKey.AdNetwork.IMOBILE -> {
-                initImobileBanner()
-                initImobileInterstitial()
-            }
-
-            RemoteConfigKey.AdNetwork.IRONSOURCE -> {
-                initIronSource()
-            }
-        }
-    }
-
-    private fun initImobileBanner() {
-        ImobileSdkAd.registerSpotInline(
+        adController.setup(
             this,
-            IMOBILE_PID,
-            IMOBILE_MID,
-            IMOBILE_BANNER_SID
-        )
-        ImobileSdkAd.start(IMOBILE_BANNER_SID)
-
-        val imobileBannerLayout = FrameLayout(this)
-        val imobileBannerLayoutParam = FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT)
-        imobileBannerLayoutParam.gravity = Gravity.TOP or Gravity.CENTER
-        imobileBannerLayout.visibility = View.INVISIBLE
-        addContentView(imobileBannerLayout, imobileBannerLayoutParam)
-        ViewCompat.setOnApplyWindowInsetsListener(imobileBannerLayout) { v, windowInsets ->
-            val insets = windowInsets.getInsets(
-                WindowInsetsCompat.Type.systemBars()
-                        or WindowInsetsCompat.Type.displayCutout()
-            )
-            v.updateLayoutParams<ViewGroup.MarginLayoutParams> {
-                topMargin = insets.top + actionBarSize
-            }
-            windowInsets
+            remoteConfig.getString(RemoteConfigKey.AD_NETWORK),
+            actionBarSize
+        ) { height ->
+            val mlp = binding.chatView.layoutParams as ViewGroup.MarginLayoutParams
+            mlp.topMargin = height
+            binding.chatView.requestLayout()
         }
-        ImobileSdkAd.showAd(this, IMOBILE_BANNER_SID, imobileBannerLayout, true)
-
-        val mlp = binding.chatView.layoutParams as ViewGroup.MarginLayoutParams
-
-        ImobileSdkAd.setImobileSdkAdListener(IMOBILE_BANNER_SID, object : ImobileSdkAdListener() {
-            override fun onAdShowCompleted() {
-                Log.d(TAG, "ImobileSdkAd($IMOBILE_BANNER_SID) onAdReadyCompleted")
-                imobileBannerLayout.visibility = View.VISIBLE
-                mlp.topMargin = imobileBannerLayout.height
-                binding.chatView.requestLayout()
-            }
-
-            override fun onFailed(reason: FailNotificationReason) {
-                Log.d(TAG, "ImobileSdkAd($IMOBILE_BANNER_SID) onFailed: $reason")
-                imobileBannerLayout.visibility = View.INVISIBLE
-                mlp.topMargin = 0
-                binding.chatView.requestLayout()
-            }
-        })
-    }
-
-    private fun initImobileInterstitial() {
-        ImobileSdkAd.registerSpotFullScreen(
-            this,
-            IMOBILE_PID,
-            IMOBILE_MID,
-            IMOBILE_INTERSTITIAL_SID
-        )
-        ImobileSdkAd.start(IMOBILE_INTERSTITIAL_SID)
-    }
-
-    private fun initIronSource() {
-        initIronSourceBanner()
-        initIronSourceInterstitial()
-        IronSource.init(
-            this,
-            IRONSOURCE_APP_KEY,
-            IronSource.AD_UNIT.BANNER,
-            IronSource.AD_UNIT.INTERSTITIAL
-        )
-        IronSource.loadBanner(ironSourceBannerLayout)
-        IronSource.loadInterstitial()
-    }
-
-    private fun initIronSourceBanner() {
-        val size = ISBannerSize.BANNER
-        ironSourceBannerLayout = IronSource.createBanner(this, size)
-        ironSourceBannerLayout.apply {
-            ironSourceBannerLayout.levelPlayBannerListener = object : LevelPlayBannerListener {
-                override fun onAdLoaded(adInfo: AdInfo) {
-                    Log.d(TAG, "IronSource banner loaded: $adInfo")
-                    val mlp = binding.chatView.layoutParams as ViewGroup.MarginLayoutParams
-                    mlp.topMargin = ironSourceBannerLayout.height
-                    binding.chatView.requestLayout()
-                }
-
-                override fun onAdLoadFailed(error: IronSourceError) {
-                    Log.e(TAG, "IronSource banner load failed: $error")
-                    val mlp = binding.chatView.layoutParams as ViewGroup.MarginLayoutParams
-                    mlp.topMargin = 0
-                    binding.chatView.requestLayout()
-                }
-
-                override fun onAdClicked(adInfo: AdInfo) {
-                    Log.d(TAG, "IronSource banner clicked: $adInfo")
-                }
-
-                override fun onAdScreenPresented(adInfo: AdInfo) {
-                    Log.d(TAG, "IronSource banner screen presented: $adInfo")
-                }
-
-                override fun onAdScreenDismissed(adInfo: AdInfo) {
-                    Log.d(TAG, "IronSource banner screen dismissed: $adInfo")
-                }
-
-                override fun onAdLeftApplication(adInfo: AdInfo) {
-                    Log.d(TAG, "IronSource banner left application: $adInfo")
-                }
-            }
-
-            val layoutParams = FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
-                gravity = Gravity.TOP or Gravity.CENTER
-            }
-            addContentView(ironSourceBannerLayout, layoutParams)
-            ViewCompat.setOnApplyWindowInsetsListener(ironSourceBannerLayout) { v, windowInsets ->
-                val insets = windowInsets.getInsets(
-                    WindowInsetsCompat.Type.systemBars()
-                            or WindowInsetsCompat.Type.displayCutout()
-                )
-                v.updateLayoutParams<ViewGroup.MarginLayoutParams> {
-                    topMargin = insets.top + actionBarSize
-                }
-                windowInsets
-            }
-            if (BUILD_TYPE == "debug") {
-                IntegrationHelper.validateIntegration(context);
-            }
-        }
-    }
-
-    private fun initIronSourceInterstitial() {
-        IronSource.setLevelPlayInterstitialListener(object : LevelPlayInterstitialListener {
-            override fun onAdReady(adInfo: AdInfo) {
-                Log.d(TAG, "IronSource interstitial ready: $adInfo")
-            }
-
-            override fun onAdLoadFailed(error: IronSourceError?) {
-                Log.e(TAG, "IronSource interstitial load failed: $error")
-            }
-
-            override fun onAdOpened(adInfo: AdInfo) {
-                Log.d(TAG, "IronSource interstitial opened: $adInfo")
-            }
-
-            override fun onAdShowSucceeded(adInfo: AdInfo) {
-                Log.d(TAG, "IronSource interstitial show succeeded: $adInfo")
-            }
-
-            override fun onAdShowFailed(error: IronSourceError?, adInfo: AdInfo) {
-                Log.e(TAG, "IronSource interstitial show failed: $error, $adInfo")
-            }
-
-            override fun onAdClicked(adInfo: AdInfo) {
-                Log.d(TAG, "IronSource interstitial clicked: $adInfo")
-            }
-
-            override fun onAdClosed(adInfo: AdInfo) {
-                Log.d(TAG, "IronSource interstitial closed: $adInfo")
-            }
-        })
     }
 
     private fun getMikuAccountFromAIModel(): User {
@@ -1053,18 +872,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         if (count >= remoteConfig.getDouble(RemoteConfigKey.AD_DISPLAY_REQUEST_TIMES)) {
             Log.d(TAG, "Ad display request count: $count")
             setOpenAIRequestCount(applicationContext, 0)
-            when (remoteConfig.getString(RemoteConfigKey.AD_NETWORK)) {
-                RemoteConfigKey.AdNetwork.IMOBILE -> {
-                    Log.d(TAG, "ImobileSdkAd.showAd")
-                    ImobileSdkAd.showAd(this, IMOBILE_INTERSTITIAL_SID)
-                }
-
-                RemoteConfigKey.AdNetwork.IRONSOURCE -> {
-                    Log.d(TAG, "IronSource.showInterstitial")
-                    IronSource.showInterstitial()
-                    setOpenAIRequestCount(applicationContext, 0)
-                }
-            }
+            adController.showInterstitial(this)
         }
 
         val supportTimes = remoteConfig.getDouble(RemoteConfigKey.SUPPORT_DISPLAY_REQUEST_TIMES).toInt()
@@ -1175,44 +983,19 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     }
 
     public override fun onPause() {
-        when (remoteConfig.getString(RemoteConfigKey.AD_NETWORK)) {
-            RemoteConfigKey.AdNetwork.IMOBILE -> {
-                ImobileSdkAd.stop(IMOBILE_BANNER_SID)
-            }
-
-            RemoteConfigKey.AdNetwork.IRONSOURCE -> {
-                IronSource.onPause(this)
-            }
-        }
+        adController.onPause(this)
         super.onPause()
     }
 
     public override fun onResume() {
-        when (remoteConfig.getString(RemoteConfigKey.AD_NETWORK)) {
-            RemoteConfigKey.AdNetwork.IMOBILE -> {
-                ImobileSdkAd.start(IMOBILE_BANNER_SID)
-            }
-
-            RemoteConfigKey.AdNetwork.IRONSOURCE -> {
-                IronSource.onResume(this)
-            }
-        }
+        adController.onResume(this)
         super.onResume()
     }
 
     public override fun onDestroy() {
         detectIntent.resetContexts()
         scope.coroutineContext.cancel()
-        when (remoteConfig.getString(RemoteConfigKey.AD_NETWORK)) {
-            RemoteConfigKey.AdNetwork.IMOBILE -> {
-                ImobileSdkAd.stop(IMOBILE_BANNER_SID)
-                ImobileSdkAd.stop(IMOBILE_INTERSTITIAL_SID)
-            }
-
-            RemoteConfigKey.AdNetwork.IRONSOURCE -> {
-                IronSource.destroyBanner(ironSourceBannerLayout)
-            }
-        }
+        adController.onDestroy(this)
         super.onDestroy()
     }
 
