@@ -1,48 +1,50 @@
 package com.aqua_ix.youbimiku
 
-import java.io.BufferedReader
-import java.io.InputStreamReader
-import java.net.HttpURLConnection
-import java.net.URL
+import android.util.Log
+import io.ktor.client.request.get
+import io.ktor.client.request.parameter
+import io.ktor.client.statement.bodyAsText
+import io.ktor.http.isSuccess
+import kotlinx.coroutines.CancellationException
+import java.io.IOException
 
-class TranslateUtil {
-    companion object {
-        fun translateEnToJa(text: String): String {
-            try {
-                val url = URL("${BuildConfig.TRANSLATE_END_POINT}?text=$text&target=ja")
-                val urlConnection = url.openConnection() as HttpURLConnection
-                urlConnection.requestMethod = "GET"
-                urlConnection.connect()
+/**
+ * 翻訳APIとのやり取りを行う。
+ *
+ * クエリは[io.ktor.client.request.parameter]がエンコードするため、`&` `#` `+` `%` や
+ * 空白、改行、絵文字、日本語を含む文章でも壊れない（文字列連結では
+ * パラメータが分断されたり、URLごと拒否されたりしていた）。
+ *
+ * 失敗は[Result]で返す。エラー文言を翻訳結果として返すと呼び出し側が成功と区別できず、
+ * ミクの発言としてそのまま表示されてしまうため。
+ */
+object TranslateUtil {
 
-                val sb = StringBuilder()
-                val br = BufferedReader(InputStreamReader(urlConnection.inputStream))
-                br.readLines().forEach {
-                    sb.append(it)
-                }
-                br.close()
-                return sb.toString()
-            } catch (ex: Exception) {
-                return Application.instance.getString(R.string.message_error)
-            }
+    private const val TAG = "TranslateUtil"
+
+    private const val PARAM_TEXT = "text"
+    private const val PARAM_TARGET = "target"
+    private const val TARGET_JA = "ja"
+    private const val TARGET_EN = "en"
+
+    suspend fun translateEnToJa(text: String): Result<String> = translate(text, TARGET_JA)
+
+    suspend fun translateJaToEn(text: String): Result<String> = translate(text, TARGET_EN)
+
+    private suspend fun translate(text: String, target: String): Result<String> = try {
+        val response = HttpClientProvider.client.get(BuildConfig.TRANSLATE_END_POINT) {
+            parameter(PARAM_TEXT, text)
+            parameter(PARAM_TARGET, target)
         }
-
-        fun translateJaToEn(text: String): String {
-            try {
-                val url = URL("${BuildConfig.TRANSLATE_END_POINT}?text=$text&target=en")
-                val urlConnection = url.openConnection() as HttpURLConnection
-                urlConnection.requestMethod = "GET"
-                urlConnection.connect()
-
-                val sb = StringBuilder()
-                val br = BufferedReader(InputStreamReader(urlConnection.inputStream))
-                br.readLines().forEach {
-                    sb.append(it)
-                }
-                br.close()
-                return sb.toString()
-            } catch (ex: Exception) {
-                return Application.instance.getString(R.string.message_error)
-            }
+        if (!response.status.isSuccess()) {
+            throw IOException("Unexpected status code: ${response.status.value}")
         }
+        // 前後の改行は吹き出しの余白になるだけなので落とす
+        Result.success(response.bodyAsText().trim())
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        Log.e(TAG, "Failed to translate into $target.", e)
+        Result.failure(e)
     }
 }
