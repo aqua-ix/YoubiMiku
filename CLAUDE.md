@@ -38,7 +38,7 @@ Single-module Android app with an activity-centric architecture. Nearly all UI l
 ### Key Layers
 
 - **UI**: `MainActivity` (ChatView + WebView for avatar mode), `UserNameDialogFragment`
-- **AI Integration**: `DetectIntent.kt` (DialogFlow v2), OpenAI via `com.aallam.openai` library
+- **AI Integration**: `DetectIntent.kt` (DialogFlow v2), OpenAI via `com.aallam.openai` library. Both clients are built lazily off the main thread — see [Threading](#threading)
 - **Config**: `config/` package — type-safe enums for AI model, font size, language, UI mode; `SharedPreferenceManager` wraps SharedPreferences; `RemoteConfigProvider` wraps Firebase RemoteConfig, which controls feature flags
 - **Data**: Room database (`database/` package) stores chat messages; Firebase Realtime DB stores API keys and credentials at runtime
 - **Ads**: `ads/` package — `AdController` interface in `main`, implementations per flavor
@@ -46,7 +46,17 @@ Single-module Android app with an activity-centric architecture. Nearly all UI l
 
 ### Configuration System
 
-Firebase RemoteConfig drives runtime feature flags (OpenAI enablement, ad network selection, display frequency, AI model parameters). Values are read through `config/RemoteConfigProvider`, which applies `res/xml/remote_config_defaults.xml`, fetches, and reports "not fetched yet / not set / invalid" as `null` so callers can pick a fallback. Initialization that depends on RemoteConfig (ad network, OpenAI, menu visibility) runs in `MainActivity.onRemoteConfigReady()` after the fetch completes — a failed fetch still runs it with default or cached values. Local preferences use `SharedPreferenceManager` with keys defined as constants.
+Firebase RemoteConfig drives runtime feature flags (OpenAI enablement, ad network selection, display frequency, AI model parameters). Values are read through `config/RemoteConfigProvider`, which applies `res/xml/remote_config_defaults.xml`, fetches, and reports "not fetched yet / not set / invalid" as `null` so callers can pick a fallback. Initialization that depends on RemoteConfig (ad network, OpenAI, menu visibility) runs in `MainActivity.onRemoteConfigReady()` after the fetch completes — a failed fetch still runs it with default or cached values. Local preferences use `SharedPreferenceManager` with keys defined as constants; it caches the `SharedPreferences` instance (`Context.getSharedPreferences()` touches the disk on every call) and `Application.onCreate()` warms it up on a background thread so the first read does not block the main thread.
+
+### Threading
+
+Blocking I/O must not run on the main thread.
+
+- `MainActivity` uses a `CoroutineScope(Dispatchers.IO)` for history reads/writes, AI requests and report sending. `DetectIntent.send()` switches to `Dispatchers.IO` itself so it does not depend on the caller's dispatcher.
+- Client construction is deferred because it is slow: `DetectIntent` loads the credentials and creates the gRPC clients lazily on the first send (about 100–400 ms), and the OpenAI client — whose constructor scans the APK for a Ktor engine (about 400 ms) — is built on `Dispatchers.IO` and published on the main thread so `canSendRequest()` sees a consistent state.
+- Cleanup that has to outlive the Activity runs on `Application.applicationScope` (a process-lifetime `SupervisorJob` + `Dispatchers.IO` scope): `DetectIntent.shutdown()` resets the Dialogflow contexts (a blocking gRPC call) and closes both clients, and does nothing when they were never created.
+- Firebase Realtime Database listeners registered in `setupOpenAI()` / `setupChat()` are kept in fields and removed in `onDestroy()`.
+- Debug builds enable `StrictMode`'s thread policy (`detectAll().penaltyLog()`), so main thread disk/network access is visible in logcat. The app's own code is expected to produce no violations; the IronSource SDK produces several in the `ads` flavor (`IronSource.init()` reads its preferences and files synchronously on the main thread).
 
 ### Database
 
