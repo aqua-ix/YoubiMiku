@@ -61,5 +61,13 @@ jobs:
           jq -r '[.[] | select(.type == "result") | .permission_denials[]?]
                  | .[]
                  | "\(.tool_name)\t\((.tool_input.command // .tool_input.subagent_type // .tool_input.file_path // .tool_input.pattern // "") | tostring | .[0:200])"' "$EXECUTION_FILE"
+          echo "### Tool calls in order"
+          jq -r '.[] | select(.type == "assistant") | .message.content[]?
+                 | select(.type == "tool_use")
+                 | "\(.name)\tbg=\(.input.run_in_background // false)\t\((.input.subagent_type // .input.skill // .input.command // .input.description // "") | tostring | .[0:120])"' "$EXECUTION_FILE"
+          echo "### Tool results that errored"
+          jq -r '.[] | select(.type == "user") | .message.content[]?
+                 | select(.type == "tool_result" and .is_error == true)
+                 | (.content | tostring | .[0:300])' "$EXECUTION_FILE"
           echo "### Final result text (truncated)"
           jq -r '[.[] | select(.type == "result") | .result // ""] | .[0] | .[0:3000]' "$EXECUTION_FILE"
