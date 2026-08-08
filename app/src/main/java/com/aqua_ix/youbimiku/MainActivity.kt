@@ -108,6 +108,10 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
     // 認証情報の到着を待っているアバターモードへの切り替え要求
     private var pendingAvatarMode = false
+
+    // 認証情報の取得結果が空だったかどうか。値が変わらない限りリスナーは再発火しないので、
+    // この場合は到着を待たずにエラーにする
+    private var avatarCredentialsFailed = false
     private var pendingAudioPermissionRequest: PermissionRequest? = null
 
     // プロセス再生成前に開いていたアバターページ。次にアバターページを開くときに一度だけ使う
@@ -460,10 +464,12 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
                 if (avatarClientId.isEmpty() || avatarClientSecret.isEmpty()) {
                     Log.e(TAG, "Avatar credentials are missing.")
+                    avatarCredentialsFailed = true
                     onAvatarCredentialsUnavailable()
                     return
                 }
 
+                avatarCredentialsFailed = false
                 if (pendingAvatarMode) {
                     // 認証情報の到着を待っていた切り替え要求を再開する
                     pendingAvatarMode = false
@@ -475,6 +481,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
             override fun onCancelled(databaseError: DatabaseError) {
                 Log.e(TAG, "Database error: ${databaseError.message}")
+                avatarCredentialsFailed = true
                 onAvatarCredentialsUnavailable()
             }
         })
@@ -943,6 +950,13 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
     private fun toggleAvatarMode(enable: Boolean = !isAvatarMode) {
         if (enable && (avatarClientId.isEmpty() || avatarClientSecret.isEmpty())) {
+            if (avatarCredentialsFailed) {
+                // 取得結果が空だった場合は待っても届かないので、その場でエラーにする
+                Log.e(TAG, "Avatar credentials are unavailable.")
+                Toast.makeText(this, R.string.avatar_mode_error, Toast.LENGTH_SHORT).show()
+                return
+            }
+
             // 認証情報がまだ届いていないので、待っていることを示して到着後に切り替える
             Log.w(TAG, "Avatar credentials are not ready yet.")
             pendingAvatarMode = true
