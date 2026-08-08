@@ -43,16 +43,13 @@ class DetectIntent(
 
     private val lazyClients = lazy { createClients() }
 
-    // 生成を始めたかどうか。生成中に終了要求が来てもクライアントを閉じ損なわないよう、
-    // 生成の完了ではなく参照された時点で立てる
+    // 送信が始まったかどうか。クライアントの生成前や生成中に終了要求が来ても
+    // 取りこぼさないよう、生成ではなく送信の入口で立てる
     @Volatile
-    private var isCreationRequested = false
+    private var isSendStarted = false
 
     private val clients: Clients
-        get() {
-            isCreationRequested = true
-            return lazyClients.value
-        }
+        get() = lazyClients.value
 
     // 実行中の送信の数。同期RPCは割り込めないため、終了処理が実行中の送信と
     // 競合しないように完了を待てるようにする
@@ -88,6 +85,7 @@ class DetectIntent(
      * ディスパッチャに関わらず[Dispatchers.IO]の上で実行する。
      */
     suspend fun send(text: String): String = withContext(Dispatchers.IO) {
+        isSendStarted = true
         inFlightRequests.incrementAndGet()
         try {
             request(text)
@@ -129,18 +127,17 @@ class DetectIntent(
      * 完了させたいため、アプリスコープでの投げっぱなしにする。
      */
     fun shutdown() {
-        if (!isCreationRequested && inFlightRequests.get() == 0) {
-            // 一度も送信していなければクライアントもコンテキストも存在しない。
-            // 送信が始まった直後はまだ生成に至っていないため、実行中の数も見る
+        if (!isSendStarted) {
+            // 一度も送信していなければクライアントもコンテキストも存在しない
             return
         }
         Application.applicationScope.launch {
             awaitInFlightRequests()
-            if (!isCreationRequested) {
-                // 送信がクライアントの生成まで至らなかった場合は片付けるものがない
+            if (!lazyClients.isInitialized()) {
+                // 送信がクライアントの生成まで至らなかった場合は片付けるものがない。
+                // 片付けのためだけに生成してしまわないよう、ここでは参照しない
                 return@launch
             }
-            // 生成中の場合はlazyが完了を待つので、閉じ損なうことはない
             resetContexts()
             closeClients()
         }

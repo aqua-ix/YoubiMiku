@@ -525,6 +525,11 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                 if (isDestroyed || isFinishing) {
                     return@withContext
                 }
+                if (openAICredentials != credentials) {
+                    // 新しい認証情報での生成が始まっているので、古い結果は捨てる
+                    Log.w(TAG, "The OpenAI credentials changed while creating the client.")
+                    return@withContext
+                }
                 openAI = client
                 Log.d(TAG, "OpenAI is ready.")
             }
