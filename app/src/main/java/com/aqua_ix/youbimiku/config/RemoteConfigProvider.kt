@@ -192,7 +192,10 @@ internal fun parseModelId(value: String): String? {
 
 /**
  * 0以上の上限値として解釈する。
- * 0（空文字も0.0として返る）は上限そのままの意味で、負の値は0に丸める。
+ *
+ * 0（空文字や未設定も0.0として返る）は「上限0」としてそのまま返し、負の値も0に丸める。
+ * 文脈の上限では0が「文脈を送らない」という有効な設定になるため、
+ * [parsePositiveCount]のように未設定として弾かない。
  */
 internal fun parseNonNegativeCount(value: Double): Int {
     return value.toInt().coerceAtLeast(0)

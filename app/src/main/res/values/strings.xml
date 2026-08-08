@@ -5,7 +5,7 @@
     <string name="openai_system_prompt">Please enjoy the conversation as Hatsune Miku. The user\'s name is %1$s.</string>
     <string name="miku_nice_to_meet_you">Nice to meet you, %1$s!</string>
     <string name="input_text_hint">"Message…"</string>
-    <!-- 入力済みの文字数と上限。%1$s: 入力済み, %2$s: 上限 -->
+    <!-- 入力済みの文字数と上限。%1$d: 入力済み, %2$d: 上限 -->
     <string name="input_length_counter">%1$d/%2$d</string>
 
     <string name="ad_placeholder">Ads</string>
