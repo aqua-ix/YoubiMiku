@@ -51,7 +51,17 @@ object RemoteConfigProvider {
             minimumFetchIntervalInSeconds = MINIMUM_FETCH_INTERVAL_IN_SECONDS
             fetchTimeoutInSeconds = FETCH_TIMEOUT_IN_SECONDS
         }
-        remoteConfig.setConfigSettingsAsync(configSettings)
+        // 設定→デフォルト値→fetchの順に直列化する
+        // （fetchTimeoutInSecondsが未反映のままfetchするのを避けるため）
+        remoteConfig.setConfigSettingsAsync(configSettings).addOnCompleteListener { settingsTask ->
+            if (!settingsTask.isSuccessful) {
+                Log.e(TAG, "Failed to apply remote config settings.", settingsTask.exception)
+            }
+            applyDefaultsAndFetch(onReady)
+        }
+    }
+
+    private fun applyDefaultsAndFetch(onReady: (Boolean) -> Unit) {
         // setDefaultsAsync完了前に値を読むと組み込みの初期値（空文字・0・false）が返るため、
         // デフォルト値の適用を待ってからfetchする
         remoteConfig.setDefaultsAsync(R.xml.remote_config_defaults)
