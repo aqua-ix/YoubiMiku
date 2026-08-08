@@ -129,16 +129,10 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     private val job = SupervisorJob()
     private val exceptionHandler: CoroutineExceptionHandler =
         CoroutineExceptionHandler { _, throwable ->
-            Log.e(TAG, "Unhandled error: $throwable")
-            // ハンドリング漏れがあっても失敗が伝わるようにする。ログだけだと
-            // ユーザーには「ミクが黙ったまま」にしか見えない
-            runOnUiThread {
-                if (isDestroyed || isFinishing || !isSending) {
-                    return@runOnUiThread
-                }
-                setSendingState(false)
-                showErrorMessage(getErrorMessage(throwable))
-            }
+            // AI応答の失敗はrunAITaskで受け止めて表示するので、ここに来るのは
+            // 履歴の保存や報告など送信とは無関係な処理の失敗。応答待ちの状態を
+            // 触ると実行中のリクエストの状態を壊すため、ログだけに留める
+            Log.e(TAG, "Unhandled error", throwable)
         }
     private val scope = CoroutineScope(Dispatchers.Default + job + exceptionHandler)
 
@@ -268,6 +262,11 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
     private fun onOpenAIError() {
         openAI = null
+        if (isSending) {
+            // 実行中のリクエストは使えなくなったクライアントのものなので応答は返らない。
+            // 解除しないと送信ボタンが戻らないまま入力できなくなる
+            setSendingState(false)
+        }
         showErrorMessage(getString(R.string.message_error_openai))
         mikuAccount.setName(getString(R.string.miku_name))
         setAIModel(this, AIModelConfig.DIALOG_FLOW)
@@ -1009,7 +1008,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
     override fun onClick(v: View) {
         val text = binding.chatView.inputText
-        if (text.isEmpty()) {
+        if (text.isBlank()) {
+            // 空白だけの入力はリクエストにならないので、吹き出しも履歴も増やさない
             return
         }
         if (!canSendRequest()) {
@@ -1136,7 +1136,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            Log.e(TAG, "AI request error: $e")
+            Log.e(TAG, "AI request error", e)
             withContext(Dispatchers.Main) {
                 if (isDestroyed || isFinishing) {
                     return@withContext
@@ -1241,9 +1241,10 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     /**
      * ミクの応答を表示して履歴に保存する。
      * 応答が空の場合は黙って捨てず、状態が伝わるようにエラーとして扱う。
+     * 改行や空白だけの応答も吹き出しが空に見えるだけなので空として扱う。
      */
     private suspend fun receiveMessage(text: String?) {
-        if (text.isNullOrEmpty()) {
+        if (text.isNullOrBlank()) {
             Log.e(TAG, "Response is empty.")
             withContext(Dispatchers.Main) {
                 if (isDestroyed || isFinishing) {
@@ -1307,11 +1308,11 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         val completion = client.chatCompletion(chatCompletionRequest)
         Log.d(TAG, "completion: $completion")
         val choice = completion.choices.first()
-        val response = choice.message.content?.replace("^$|\n", "")
+        val response = choice.message.content
         Log.d(TAG, "response: $response")
         val result = when {
             // 応答が空のまま末尾に記号を足すと空でなくなってしまうので先に判定する
-            response.isNullOrEmpty() -> null
+            response.isNullOrBlank() -> null
             choice.finishReason == FinishReason.Length -> "$response…"
             else -> response
         }
