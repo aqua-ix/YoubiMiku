@@ -17,7 +17,7 @@ class NoOpAdController : AdController {
         Log.d(TAG, "Ad network is disabled by flavor.")
     }
 
-    override fun showInterstitial(activity: AppCompatActivity) {}
+    override fun showInterstitial(activity: AppCompatActivity): Boolean = false
 
     override fun onResume(activity: AppCompatActivity) {}
 

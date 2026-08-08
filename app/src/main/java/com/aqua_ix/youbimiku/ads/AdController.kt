@@ -29,8 +29,13 @@ interface AdController {
 
     /**
      * インタースティシャル広告を表示する。初期化済みの広告ネットワークがない場合は何もしない。
+     *
+     * ロードが終わっていない場合は表示できないため、表示できたかどうかを返す。
+     * 呼び出し側は表示できなかった場合にカウントを持ち越し、次の機会に再挑戦できる。
+     *
+     * @return 広告を表示した場合はtrue、在庫がなく表示できなかった場合はfalse
      */
-    fun showInterstitial(activity: AppCompatActivity)
+    fun showInterstitial(activity: AppCompatActivity): Boolean
 
     fun onResume(activity: AppCompatActivity)
 
