@@ -54,15 +54,26 @@ object RemoteConfigProvider {
         remoteConfig.setConfigSettingsAsync(configSettings)
         // setDefaultsAsync完了前に値を読むと組み込みの初期値（空文字・0・false）が返るため、
         // デフォルト値の適用を待ってからfetchする
-        remoteConfig.setDefaultsAsync(R.xml.remote_config_defaults).addOnCompleteListener {
-            isDefaultsApplied = true
-            remoteConfig.fetchAndActivate().addOnCompleteListener { task ->
-                if (!task.isSuccessful) {
-                    Log.e(TAG, "Failed to fetch remote config. Fall back to defaults.", task.exception)
+        remoteConfig.setDefaultsAsync(R.xml.remote_config_defaults)
+            .addOnCompleteListener { defaultsTask ->
+                if (!defaultsTask.isSuccessful) {
+                    Log.e(TAG, "Failed to apply remote config defaults.", defaultsTask.exception)
                 }
-                onReady(task.isSuccessful)
+                isDefaultsApplied = defaultsTask.isSuccessful
+                remoteConfig.fetchAndActivate().addOnCompleteListener { task ->
+                    if (task.isSuccessful) {
+                        // リモートの値が使えるなら、デフォルト値の適用が失敗していても値は読める
+                        isDefaultsApplied = true
+                    } else {
+                        Log.e(
+                            TAG,
+                            "Failed to fetch remote config. Fall back to defaults.",
+                            task.exception
+                        )
+                    }
+                    onReady(task.isSuccessful)
+                }
             }
-        }
     }
 
     /** 未取得・未設定・未知の広告ネットワークの場合はnull */
