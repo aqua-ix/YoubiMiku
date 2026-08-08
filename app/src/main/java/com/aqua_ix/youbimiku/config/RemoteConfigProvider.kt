@@ -29,6 +29,13 @@ object RemoteConfigProvider {
     // remote_config_defaults.xmlのmax_user_text_lengthと同じ値
     private const val FALLBACK_MAX_USER_TEXT_LENGTH = 140
 
+    // remote_config_defaults.xmlのopenai_modelと同じ値
+    private const val FALLBACK_OPENAI_MODEL = "gpt-4o-mini"
+
+    // remote_config_defaults.xmlのmax_context_messages・max_context_charsと同じ値
+    private const val FALLBACK_MAX_CONTEXT_MESSAGES = 20
+    private const val FALLBACK_MAX_CONTEXT_CHARS = 2000
+
     private const val EMPTY_JSON_ARRAY = "[]"
 
     private val TAG = RemoteConfigProvider::class.java.simpleName
@@ -123,6 +130,38 @@ object RemoteConfigProvider {
     val maxTokens: Int?
         get() = if (isDefaultsApplied) parsePositiveCount(remoteConfig.getDouble(RemoteConfigKey.MAX_TOKENS)) else null
 
+    /**
+     * OpenAIに使うモデルID。未取得・未設定の場合はフォールバック値。
+     * 空文字のまま送るとリクエストが失敗するため、フォールバック値に寄せる。
+     */
+    val openAIModel: String
+        get() = if (isDefaultsApplied) {
+            parseModelId(remoteConfig.getString(RemoteConfigKey.OPENAI_MODEL)) ?: FALLBACK_OPENAI_MODEL
+        } else {
+            FALLBACK_OPENAI_MODEL
+        }
+
+    /**
+     * 文脈として送る履歴の件数の上限。未取得の場合はフォールバック値。
+     *
+     * 0を指定すると文脈を送らなくなる（未取得・未設定を0に丸めるのは
+     * トークンを余分に消費しない側に倒すため）。
+     */
+    val maxContextMessages: Int
+        get() = if (isDefaultsApplied) {
+            parseNonNegativeCount(remoteConfig.getDouble(RemoteConfigKey.MAX_CONTEXT_MESSAGES))
+        } else {
+            FALLBACK_MAX_CONTEXT_MESSAGES
+        }
+
+    /** 文脈として送る履歴の合計文字数の上限。扱いは[maxContextMessages]と同じ */
+    val maxContextChars: Int
+        get() = if (isDefaultsApplied) {
+            parseNonNegativeCount(remoteConfig.getDouble(RemoteConfigKey.MAX_CONTEXT_CHARS))
+        } else {
+            FALLBACK_MAX_CONTEXT_CHARS
+        }
+
     /** 未取得・未設定の場合は空のJSON配列 */
     val supportLinksJson: String
         get() = if (isDefaultsApplied) {
@@ -144,4 +183,17 @@ internal fun parseAdNetwork(value: String): String? {
 /** 空文字（0.0として返る）や0以下の値を「未設定」として扱う */
 internal fun parsePositiveCount(value: Double): Int? {
     return value.toInt().takeIf { it > 0 }
+}
+
+/** 空文字や空白だけの値を「未設定」として扱う */
+internal fun parseModelId(value: String): String? {
+    return value.trim().takeIf { it.isNotEmpty() }
+}
+
+/**
+ * 0以上の上限値として解釈する。
+ * 0（空文字も0.0として返る）は上限そのままの意味で、負の値は0に丸める。
+ */
+internal fun parseNonNegativeCount(value: Double): Int {
+    return value.toInt().coerceAtLeast(0)
 }

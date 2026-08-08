@@ -9,6 +9,18 @@
         <value>0</value>
     </entry>
     <entry>
+        <key>openai_model</key>
+        <value>gpt-4o-mini</value>
+    </entry>
+    <entry>
+        <key>max_context_messages</key>
+        <value>20</value>
+    </entry>
+    <entry>
+        <key>max_context_chars</key>
+        <value>2000</value>
+    </entry>
+    <entry>
         <key>ad_network</key>
         <value>ironsource</value>
     </entry>

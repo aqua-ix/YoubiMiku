@@ -41,4 +41,28 @@ class RemoteConfigValueTest {
         assertEquals(30, parsePositiveCount(30.0))
         assertEquals(1, parsePositiveCount(1.9))
     }
+
+    @Test
+    fun parseModelId_returnsNullForUnsetValue() {
+        assertNull(parseModelId(""))
+        assertNull(parseModelId(" "))
+    }
+
+    @Test
+    fun parseModelId_returnsTrimmedValue() {
+        assertEquals("gpt-4o-mini", parseModelId("gpt-4o-mini"))
+        assertEquals("gpt-4o-mini", parseModelId(" gpt-4o-mini\n"))
+    }
+
+    @Test
+    fun parseNonNegativeCount_returnsZeroForUnsetOrNegativeValue() {
+        assertEquals(0, parseNonNegativeCount(0.0))
+        assertEquals(0, parseNonNegativeCount(-1.0))
+    }
+
+    @Test
+    fun parseNonNegativeCount_returnsPositiveValue() {
+        assertEquals(20, parseNonNegativeCount(20.0))
+        assertEquals(1, parseNonNegativeCount(1.9))
+    }
 }
