@@ -9,6 +9,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
+import android.provider.Settings
 import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
@@ -136,11 +137,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                 }
             } else {
                 request?.deny()
-                Toast.makeText(
-                    this,
-                    R.string.avatar_mode_needs_record_audio_permission,
-                    Toast.LENGTH_SHORT
-                ).show()
+                showRecordAudioPermissionDeniedDialog()
             }
         }
 
@@ -603,8 +600,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                         if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
                             request.grant(arrayOf(PermissionRequest.RESOURCE_AUDIO_CAPTURE))
                         } else {
-                            pendingAudioPermissionRequest = request
-                            recordAudioPermissionLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
+                            requestRecordAudioPermission(request)
                         }
                         return
                     }
@@ -614,6 +610,57 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         }
 
         onBackPressedDispatcher.addCallback(this, avatarModeBackCallback)
+    }
+
+    private fun requestRecordAudioPermission(request: PermissionRequest? = null) {
+        pendingAudioPermissionRequest = request
+        // システムの権限ダイアログの前に、マイクを何のために使うのかを説明する
+        AlertDialog.Builder(this)
+            .setTitle(R.string.avatar_mode_record_audio_rationale_title)
+            .setMessage(R.string.avatar_mode_record_audio_rationale_message)
+            .setPositiveButton(R.string.avatar_mode_record_audio_continue) { _, _ ->
+                recordAudioPermissionLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
+            }
+            .setNegativeButton(R.string.setting_dialog_cancel) { _, _ ->
+                denyPendingAudioPermissionRequest()
+            }
+            .setOnCancelListener { denyPendingAudioPermissionRequest() }
+            .show()
+    }
+
+    private fun denyPendingAudioPermissionRequest() {
+        pendingAudioPermissionRequest?.deny()
+        pendingAudioPermissionRequest = null
+    }
+
+    private fun showRecordAudioPermissionDeniedDialog() {
+        // 一度の拒否ならもう一度要求できる。二度拒否されると権限ダイアログが出ないので設定へ誘導する
+        val canRequestAgain =
+            shouldShowRequestPermissionRationale(android.Manifest.permission.RECORD_AUDIO)
+        val builder = AlertDialog.Builder(this)
+            .setTitle(R.string.avatar_mode_needs_record_audio_permission)
+            .setNegativeButton(R.string.setting_dialog_cancel, null)
+        if (canRequestAgain) {
+            builder.setMessage(R.string.avatar_mode_record_audio_denied_message)
+                .setPositiveButton(R.string.avatar_mode_record_audio_retry) { _, _ ->
+                    requestRecordAudioPermission()
+                }
+        } else {
+            builder.setMessage(R.string.avatar_mode_record_audio_blocked_message)
+                .setPositiveButton(R.string.avatar_mode_record_audio_open_settings) { _, _ ->
+                    openAppPermissionSettings()
+                }
+        }
+        builder.show()
+    }
+
+    private fun openAppPermissionSettings() {
+        try {
+            val uri = Uri.fromParts("package", packageName, null)
+            startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, uri))
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to open the app settings: $e")
+        }
     }
 
     private fun loadAvatarPage() {
