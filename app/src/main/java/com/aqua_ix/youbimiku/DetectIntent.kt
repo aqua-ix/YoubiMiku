@@ -101,9 +101,15 @@ class DetectIntent(
         }
     }
 
-    private fun request(text: String): String {
+    /**
+     * 翻訳に失敗した場合は例外にする。エラー文言を翻訳結果として扱うと、
+     * ミクの応答として表示されたうえ履歴にも残ってしまうため、
+     * 呼び出し元（[MainActivity]）にエラーとして伝える。
+     */
+    private suspend fun request(text: String): String {
         val shouldTranslate = getLanguage(context).equals(LanguageConfig.LANGUAGE_EN.name)
-        val sendText = if (shouldTranslate) TranslateUtil.translateEnToJa(text) else text
+        val sendText =
+            if (shouldTranslate) TranslateUtil.translateEnToJa(text).getOrThrow() else text
         val detectIntentRequest = DetectIntentRequest.newBuilder()
             .setQueryInput(
                 QueryInput.newBuilder()
@@ -120,7 +126,7 @@ class DetectIntent(
 
         val res = clients.sessions.detectIntent(detectIntentRequest)
         if (shouldTranslate) {
-            return TranslateUtil.translateJaToEn(res.queryResult.fulfillmentText)
+            return TranslateUtil.translateJaToEn(res.queryResult.fulfillmentText).getOrThrow()
         }
 
         Log.d(TAG, "response result : ${res.queryResult}")
