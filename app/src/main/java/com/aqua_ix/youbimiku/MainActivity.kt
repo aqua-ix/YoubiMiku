@@ -1044,17 +1044,23 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     private fun showInterstitialIfNeeded() {
         // 未取得・未設定・不正値の場合はnullになり、インタースティシャルを表示しない
         val times = RemoteConfigProvider.adDisplayRequestTimes
-        val count = getMessageCountForAd(applicationContext) + 1
-        if (times == null || count < times) {
+        val storedCount = getMessageCountForAd(applicationContext)
+        if (times == null) {
+            setMessageCountForAd(applicationContext, storedCount + 1)
+            return
+        }
+
+        // 設定回数より多く数える意味はないので、上限は設定回数に留める
+        val count = (storedCount + 1).coerceAtMost(times)
+        if (count < times) {
             setMessageCountForAd(applicationContext, count)
             return
         }
 
         Log.d(TAG, "Ad display message count: $count")
-        // ロードが終わっていない場合はカウントを持ち越して次の送信で表示し直す。
-        // 設定回数より多く数える意味はないので、持ち越す値は設定回数に留める
+        // ロードが終わっていない場合はカウントを持ち越して次の送信で表示し直す
         val isShown = adController.showInterstitial(this)
-        setMessageCountForAd(applicationContext, if (isShown) 0 else times)
+        setMessageCountForAd(applicationContext, if (isShown) 0 else count)
     }
 
     private fun showSupportDialogIfNeeded() {
