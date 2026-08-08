@@ -129,13 +129,18 @@ class DetectIntent(
      * 完了させたいため、アプリスコープでの投げっぱなしにする。
      */
     fun shutdown() {
-        if (!isCreationRequested) {
-            // 一度も送信していなければクライアントもコンテキストも存在しない
+        if (!isCreationRequested && inFlightRequests.get() == 0) {
+            // 一度も送信していなければクライアントもコンテキストも存在しない。
+            // 送信が始まった直後はまだ生成に至っていないため、実行中の数も見る
             return
         }
         Application.applicationScope.launch {
-            // 生成中の場合はlazyが完了を待つので、閉じ損なうことはない
             awaitInFlightRequests()
+            if (!isCreationRequested) {
+                // 送信がクライアントの生成まで至らなかった場合は片付けるものがない
+                return@launch
+            }
+            // 生成中の場合はlazyが完了を待つので、閉じ損なうことはない
             resetContexts()
             closeClients()
         }
