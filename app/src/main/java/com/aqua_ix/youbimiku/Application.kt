@@ -1,7 +1,7 @@
 package com.aqua_ix.youbimiku
 
+import android.content.ComponentCallbacks2
 import android.os.StrictMode
-import android.util.Log
 import com.aqua_ix.youbimiku.config.SharedPreferenceManager
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
@@ -12,7 +12,7 @@ import kotlinx.coroutines.launch
 class Application : android.app.Application() {
 
     companion object {
-        private val TAG = Application::class.java.simpleName
+        private const val TAG = "Application"
 
         lateinit var instance: Application private set
 
@@ -22,7 +22,8 @@ class Application : android.app.Application() {
          */
         val applicationScope: CoroutineScope = CoroutineScope(
             SupervisorJob() + Dispatchers.IO + CoroutineExceptionHandler { _, throwable ->
-                Log.e(TAG, "Unhandled error in the application scope", throwable)
+                // 拾いきれなかった例外がログに落ちるだけにならないよう、Crashlyticsにも記録する
+                AppLog.e(TAG, "Unhandled error in the application scope", throwable)
             }
         )
     }
@@ -36,6 +37,26 @@ class Application : android.app.Application() {
 
         // 設定の初回読み込みをメインスレッドで待たないよう、先に読み込ませておく
         applicationScope.launch { SharedPreferenceManager.warmUp(this@Application) }
+    }
+
+    /**
+     * メモリ不足の通知を記録する。
+     *
+     * `lowmemorykiller`にプロセスを殺された場合、アプリ側には何も残せずクラッシュにもならない
+     * （#101で実際に起きた）。あとから起きたクラッシュのレポートから、その直前に
+     * メモリが逼迫していたことを読み取れるようにしておく。
+     */
+    @Suppress("DEPRECATION")
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        // TRIM_MEMORY_RUNNING_LOWはAPI 35で非推奨になったが、コールバック自体は
+        // minSdk 23から現行までこの水位で届くため、判定にはそのまま使う
+        if (level < ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) {
+            // バックグラウンドに回っただけの通知も同じ仕組みで届くため、逼迫した水位だけを拾う
+            return
+        }
+        AppLog.setCustomKey(CrashlyticsKey.LAST_TRIM_LEVEL, level)
+        AppLog.d(TAG) { "onTrimMemory: level=$level" }
     }
 
     /**

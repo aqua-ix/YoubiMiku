@@ -1,6 +1,6 @@
 package com.aqua_ix.youbimiku.config
 
-import android.util.Log
+import com.aqua_ix.youbimiku.AppLog
 import com.aqua_ix.youbimiku.R
 import com.aqua_ix.youbimiku.RemoteConfigKey
 import com.google.firebase.ktx.Firebase
@@ -38,7 +38,7 @@ object RemoteConfigProvider {
 
     private const val EMPTY_JSON_ARRAY = "[]"
 
-    private val TAG = RemoteConfigProvider::class.java.simpleName
+    private const val TAG = "RemoteConfigProvider"
 
     private val remoteConfig: FirebaseRemoteConfig by lazy { Firebase.remoteConfig }
 
@@ -62,7 +62,7 @@ object RemoteConfigProvider {
         // （fetchTimeoutInSecondsが未反映のままfetchするのを避けるため）
         remoteConfig.setConfigSettingsAsync(configSettings).addOnCompleteListener { settingsTask ->
             if (!settingsTask.isSuccessful) {
-                Log.e(TAG, "Failed to apply remote config settings.", settingsTask.exception)
+                AppLog.e(TAG, "Failed to apply remote config settings.", settingsTask.exception)
             }
             applyDefaultsAndFetch(onReady)
         }
@@ -74,7 +74,7 @@ object RemoteConfigProvider {
         remoteConfig.setDefaultsAsync(R.xml.remote_config_defaults)
             .addOnCompleteListener { defaultsTask ->
                 if (!defaultsTask.isSuccessful) {
-                    Log.e(TAG, "Failed to apply remote config defaults.", defaultsTask.exception)
+                    AppLog.e(TAG, "Failed to apply remote config defaults.", defaultsTask.exception)
                 }
                 isDefaultsApplied = defaultsTask.isSuccessful
                 remoteConfig.fetchAndActivate().addOnCompleteListener { task ->
@@ -82,7 +82,7 @@ object RemoteConfigProvider {
                         // リモートの値が使えるなら、デフォルト値の適用が失敗していても値は読める
                         isDefaultsApplied = true
                     } else {
-                        Log.e(
+                        AppLog.e(
                             TAG,
                             "Failed to fetch remote config. Fall back to defaults.",
                             task.exception

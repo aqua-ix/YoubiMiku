@@ -1,7 +1,7 @@
 package com.aqua_ix.youbimiku.ads
 
-import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
+import com.aqua_ix.youbimiku.AppLog
 
 /**
  * 広告SDKを同梱しない`noAds`フレーバー向けの、何もしない実装。
@@ -14,7 +14,7 @@ class NoOpAdController : AdController {
         isResumed: Boolean,
         onBannerHeightChanged: (Int) -> Unit
     ) {
-        Log.d(TAG, "Ad network is disabled by flavor.")
+        AppLog.d(TAG) { "Ad network is disabled by flavor." }
     }
 
     // 広告を表示することはないので常にfalse。呼び出し側のカウントは閾値に留まるだけで、
@@ -28,6 +28,6 @@ class NoOpAdController : AdController {
     override fun onDestroy(activity: AppCompatActivity) {}
 
     companion object {
-        val TAG = NoOpAdController::class.java.name.toString()
+        private const val TAG = "NoOpAdController"
     }
 }

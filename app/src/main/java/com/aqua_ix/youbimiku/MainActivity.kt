@@ -13,7 +13,6 @@ import android.provider.Settings
 import android.text.Editable
 import android.text.InputFilter
 import android.text.TextWatcher
-import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.Menu
@@ -46,7 +45,9 @@ import com.aallam.openai.api.chat.ChatMessage
 import com.aallam.openai.api.chat.ChatRole
 import com.aallam.openai.api.core.FinishReason
 import com.aallam.openai.api.exception.OpenAIIOException
+import com.aallam.openai.api.logging.LogLevel
 import com.aallam.openai.api.model.ModelId
+import com.aallam.openai.client.LoggingConfig
 import com.aallam.openai.client.OpenAI
 import com.aallam.openai.client.OpenAIConfig
 import com.aqua_ix.youbimiku.ads.AdController
@@ -179,8 +180,9 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         CoroutineExceptionHandler { _, throwable ->
             // AI応答の失敗はrunAITaskで受け止めて表示するので、ここに来るのは
             // 履歴の保存や報告など送信とは無関係な処理の失敗。応答待ちの状態を
-            // 触ると実行中のリクエストの状態を壊すため、ログだけに留める
-            Log.e(TAG, "Unhandled error", throwable)
+            // 触ると実行中のリクエストの状態を壊すため、画面には出さない。
+            // 気付かないまま失敗し続けないよう、Crashlyticsには記録する（[AppLog.e]）
+            AppLog.e(TAG, "Unhandled error", throwable)
         }
     // 履歴の読み書き・AI応答の取得・報告の送信はいずれもブロッキングI/Oなので、
     // スレッド数の少ないDispatchers.Defaultではなくディスク・通信向けのIOで実行する
@@ -188,6 +190,23 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
     // 応答待ちかどうか。判定と更新をメインスレッドに揃えて、連続送信で競合しないようにする
     private var isSending = false
+
+    /**
+     * 送信中のリクエストで使っているAIモデル。失敗を種別ごとに数えるときに使う。
+     * 設定の読み出しはディスクアクセスなので、IOスレッドから読み直さずに
+     * 送信の入口（メインスレッド）で控えておく。
+     */
+    @Volatile
+    private var sendingAIModel = ""
+
+    /**
+     * ストリーミングで届いている応答の文字数。
+     *
+     * 失敗が「応答ゼロ」なのか「途中まで届いて失敗」なのかを区別するために持つ。
+     * どちらも同じ例外で失敗するため、例外だけでは見分けられない。
+     */
+    @Volatile
+    private var streamedResponseChars = 0
 
     /**
      * 応答待ちを示す吹き出し。履歴には残さないので消すために参照を持つ。
@@ -292,19 +311,21 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             }
             if (!isFetched) {
                 // 取得に失敗してもデフォルト値・前回キャッシュで初期化を続行する
-                Log.w(TAG, "Remote config is not fetched. Continue with default values.")
+                AppLog.w(TAG, "Remote config is not fetched. Continue with default values.")
             }
             onRemoteConfigReady()
         }
     }
 
     private fun onRemoteConfigReady() {
-        Log.d(TAG, "Remote config ready: adNetwork=${RemoteConfigProvider.adNetwork}, " +
-                "adDisplayRequestTimes=${RemoteConfigProvider.adDisplayRequestTimes}, " +
-                "openAIEnabled=${RemoteConfigProvider.isOpenAIEnabled}, " +
-                "openAIModel=${RemoteConfigProvider.openAIModel}, " +
-                "maxContextMessages=${RemoteConfigProvider.maxContextMessages}, " +
-                "maxContextChars=${RemoteConfigProvider.maxContextChars}")
+        AppLog.d(TAG) {
+            "Remote config ready: adNetwork=${RemoteConfigProvider.adNetwork}, " +
+                    "adDisplayRequestTimes=${RemoteConfigProvider.adDisplayRequestTimes}, " +
+                    "openAIEnabled=${RemoteConfigProvider.isOpenAIEnabled}, " +
+                    "openAIModel=${RemoteConfigProvider.openAIModel}, " +
+                    "maxContextMessages=${RemoteConfigProvider.maxContextMessages}, " +
+                    "maxContextChars=${RemoteConfigProvider.maxContextChars}"
+        }
         setupOpenAI()
         setupAdNetwork()
         // 取得した上限がフォールバック値と違う場合があるため、入力欄に反映し直す
@@ -353,7 +374,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             binding.chatView.setOnBubbleLongClickListener(object :
                 Message.OnBubbleLongClickListener {
                 override fun onLongClick(message: Message) {
-                    Log.d(TAG, "onLongClick: ${message.text}")
                     showActionSheet(message)
                 }
             })
@@ -374,7 +394,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         val row = input?.parent as? ViewGroup
         if (input == null || row == null) {
             // ライブラリのレイアウトが変わった場合でも会話は続けられるようにする
-            Log.w(TAG, "The input box is not found. Skip the input length counter.")
+            AppLog.w(TAG, "The input box is not found. Skip the input length counter.")
             return
         }
         inputBox = input
@@ -525,7 +545,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to load older messages", e)
+                AppLog.e(TAG, "Failed to load older messages", e)
                 emptyList()
             }
             val messages = toMessages(entities)
@@ -586,9 +606,11 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     private fun setupAdNetwork() {
         val adNetwork = RemoteConfigProvider.adNetwork
         if (adNetwork == null) {
-            Log.w(TAG, "Ad network is not configured.")
+            AppLog.w(TAG, "Ad network is not configured.")
             return
         }
+        // 広告ネットワークによってしか起きない不具合を切り分けられるようにする
+        AppLog.setCustomKey(CrashlyticsKey.AD_NETWORK, adNetwork)
         adController.setup(
             this,
             adNetwork,
@@ -662,7 +684,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
     private fun setupOpenAI() {
         if (RemoteConfigProvider.isOpenAIEnabled != true) {
-            Log.e(TAG, "OpenAI is disabled by remote config.")
+            AppLog.e(TAG, "OpenAI is disabled by remote config.")
             onOpenAIError()
             return
         }
@@ -675,7 +697,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
                 val key = apiKey
                 if (key == null) {
-                    Log.e(TAG, "apiKey is null.")
+                    AppLog.e(TAG, "apiKey is null.")
                     onOpenAIError()
                     return
                 }
@@ -683,7 +705,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             }
 
             override fun onCancelled(databaseError: DatabaseError) {
-                Log.e(TAG, "Database error: ${databaseError.message}")
+                AppLog.e(TAG, "Database error: ${databaseError.message}")
                 onOpenAIError()
             }
         }
@@ -711,13 +733,24 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         openAICredentials = credentials
         scope.launch {
             val client = try {
-                OpenAI(OpenAIConfig(token = apiKey, organization = orgId))
+                OpenAI(
+                    OpenAIConfig(
+                        token = apiKey,
+                        organization = orgId,
+                        // 既定のLogLevel.HeadersはOpenAI-Organization（組織ID）と
+                        // set-cookieを平文でlogcatに出す（APIキーはSDKが伏せる）。
+                        // ヘッダを出さないレベルに落とし、リリースビルドでは何も出さない
+                        logging = LoggingConfig(
+                            logLevel = if (BuildConfig.DEBUG) LogLevel.Info else LogLevel.None
+                        ),
+                    )
+                )
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 // ログだけに留めると準備中のまま送信できなくなるので、
                 // apiKeyが無い場合と同じようにエラーとして扱う
-                Log.e(TAG, "Failed to create the OpenAI client.", e)
+                AppLog.e(TAG, "Failed to create the OpenAI client.", e)
                 withContext(Dispatchers.Main) {
                     if (isDestroyed || isFinishing) {
                         return@withContext
@@ -733,11 +766,11 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                 }
                 if (openAICredentials != credentials) {
                     // 新しい認証情報での生成が始まっているので、古い結果は捨てる
-                    Log.w(TAG, "The OpenAI credentials changed while creating the client.")
+                    AppLog.w(TAG, "The OpenAI credentials changed while creating the client.")
                     return@withContext
                 }
                 openAI = client
-                Log.d(TAG, "OpenAI is ready.")
+                AppLog.d(TAG) { "OpenAI is ready." }
             }
         }
     }
@@ -772,7 +805,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                     dataSnapshot.child("clientSecret").getValue(String::class.java) ?: ""
 
                 if (avatarClientId.isEmpty() || avatarClientSecret.isEmpty()) {
-                    Log.e(TAG, "Avatar credentials are missing.")
+                    AppLog.e(TAG, "Avatar credentials are missing.")
                     avatarCredentialsFailed = true
                     onAvatarCredentialsUnavailable()
                     return
@@ -789,7 +822,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             }
 
             override fun onCancelled(databaseError: DatabaseError) {
-                Log.e(TAG, "Database error: ${databaseError.message}")
+                AppLog.e(TAG, "Database error: ${databaseError.message}")
                 avatarCredentialsFailed = true
                 onAvatarCredentialsUnavailable()
             }
@@ -889,10 +922,9 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                     }
 
                     // レスポンスヘッダーには Cloudflare Access の認証トークンが含まれるため出力しない
-                    Log.d(
-                        TAG,
+                    AppLog.d(TAG) {
                         "WebResourceResponse: ${connection.responseCode}, ${connection.contentType}"
-                    )
+                    }
 
                     // Content-Typeは "text/html; charset=utf-8" の形で返るため、
                     // MIMEタイプと文字コードに分けて渡す（そのまま渡すと種別が判別されない）
@@ -917,7 +949,13 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                         WebResourceResponse(mimeType, charset, connection.inputStream)
                     }
                 } catch (e: Exception) {
-                    Log.e(TAG, "WebResourceResponse error", e)
+                    // サブリソースの失敗はページ表示に影響しないことも多いので記録しない。
+                    // 記録すると1ページの読み込みで何件も送られてしまう
+                    if (request?.isForMainFrame == true) {
+                        AppLog.e(TAG, "Failed to fetch the avatar page.", e)
+                    } else {
+                        AppLog.w(TAG, "Failed to fetch an avatar resource.", e)
+                    }
                     // 応答を返せない場合は接続を残さない（成功時はWebViewが
                     // ストリームを読み終えるまで閉じられないのでここでは閉じない）
                     connection?.disconnect()
@@ -942,10 +980,10 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             ) {
                 if (request?.isForMainFrame != true) {
                     // サブリソース（計測用スクリプトなど）の失敗は無視する
-                    Log.w(TAG, "Ignore loading error for sub resource: ${request?.url}")
+                    AppLog.w(TAG, "Ignore loading error for sub resource: ${request?.url}")
                     return
                 }
-                Log.e(
+                AppLog.e(
                     TAG, "Avatar mode loading error: ${error?.errorCode}, ${error?.description}"
                 )
                 super.onReceivedError(view, request, error)
@@ -1023,7 +1061,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             val uri = Uri.fromParts("package", packageName, null)
             startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, uri))
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to open the app settings: $e")
+            AppLog.e(TAG, "Failed to open the app settings.", e)
         }
     }
 
@@ -1031,7 +1069,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         val restoredUrl = savedAvatarUrl
         savedAvatarUrl = null
         if (restoredUrl?.startsWith(BuildConfig.AVATAR_BASE_URL) == true) {
-            Log.d(TAG, "Restore the avatar page: $restoredUrl")
+            AppLog.d(TAG) { "Restore the avatar page: $restoredUrl" }
             loadAvatarUrl(restoredUrl)
             return
         }
@@ -1076,6 +1114,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             .setTitle(getString(R.string.setting_ai_model))
             .setSingleChoiceItems(aiModelNames, currentIndex) { dialog, which ->
                 setAIModel(this, aiModels[which])
+                Analytics.logModelChange(aiModels[which].name)
                 mikuAccount = getMikuAccountFromAIModel()
                 (dialog as AlertDialog).getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = true
                 invalidateOptionsMenu()
@@ -1140,7 +1179,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                     }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "InAppReview error: ${e.message}")
+            AppLog.e(TAG, "Failed to open the in-app review.", e)
         }
     }
 
@@ -1217,7 +1256,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                 if (name.isNotEmpty() && url.isNotEmpty()) name to url else null
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to parse support_links: ${e.message}")
+            AppLog.e(TAG, "Failed to parse support_links.", e)
             emptyList()
         }
     }
@@ -1260,7 +1299,15 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
             1 -> {
+                val wasAvatarMode = isAvatarMode
                 toggleAvatarMode()
+                // 起動時の復帰では数えず、切り替えが実際に成立したときだけ記録する
+                // （認証情報が届いていない場合はモードが変わらない）
+                if (isAvatarMode != wasAvatarMode) {
+                    Analytics.logModeChange(
+                        if (isAvatarMode) UIModeConfig.AVATAR.name else UIModeConfig.CHAT.name
+                    )
+                }
                 true
             }
 
@@ -1312,13 +1359,13 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         if (enable && (avatarClientId.isEmpty() || avatarClientSecret.isEmpty())) {
             if (avatarCredentialsFailed) {
                 // 取得結果が空だった場合は待っても届かないので、その場でエラーにする
-                Log.e(TAG, "Avatar credentials are unavailable.")
+                AppLog.e(TAG, "Avatar credentials are unavailable.")
                 Toast.makeText(this, R.string.avatar_mode_error, Toast.LENGTH_SHORT).show()
                 return
             }
 
             // 認証情報がまだ届いていないので、待っていることを示して到着後に切り替える
-            Log.w(TAG, "Avatar credentials are not ready yet.")
+            AppLog.w(TAG, "Avatar credentials are not ready yet.")
             pendingAvatarMode = true
             binding.progressBar.visibility = View.VISIBLE
             Toast.makeText(this, R.string.avatar_mode_preparing, Toast.LENGTH_SHORT).show()
@@ -1326,7 +1373,10 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         }
 
         isAvatarMode = enable
-        setUIMode(this, if (isAvatarMode) UIModeConfig.AVATAR else UIModeConfig.CHAT)
+        val uiMode = if (isAvatarMode) UIModeConfig.AVATAR else UIModeConfig.CHAT
+        setUIMode(this, uiMode)
+        // アバターモードだけで起きるクラッシュ（WebView周り）を切り分けられるようにする
+        AppLog.setCustomKey(CrashlyticsKey.UI_MODE, uiMode.name)
         avatarModeBackCallback.isEnabled = isAvatarMode
         invalidateOptionsMenu()
 
@@ -1386,13 +1436,13 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     private fun canSendRequest(): Boolean {
         if (isSending) {
             // 応答待ちの間に送ると、応答が来ないメッセージが履歴に残ってしまう
-            Log.w(TAG, "The previous request is still running.")
+            AppLog.w(TAG, "The previous request is still running.")
             Toast.makeText(this, R.string.message_waiting_response, Toast.LENGTH_SHORT).show()
             return false
         }
         if (getAIModel(this) == AIModelConfig.OPEN_AI.name && openAI == null) {
             // RemoteConfigとFirebaseからの初期化がまだ終わっていない
-            Log.w(TAG, "OpenAI is not initialized yet.")
+            AppLog.w(TAG, "OpenAI is not initialized yet.")
             Toast.makeText(this, R.string.message_preparing, Toast.LENGTH_SHORT).show()
             return false
         }
@@ -1425,15 +1475,19 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     }
 
     private fun sendRequest(text: String) {
-        Log.d(TAG, "request: $text")
+        AppLog.d(TAG) { "Send a request: ${text.length} chars" }
         if (text.isBlank()) {
-            Log.e(TAG, "Text should not be empty.")
+            AppLog.e(TAG, "Text should not be empty.")
             return
         }
 
         // 応答待ちの判定と開始をメインスレッドで済ませてから起動する。
         // コルーチンの中で判定すると、連続タップでどちらもすり抜けることがある
         val aiModel = getAIModel(this)
+        // 未設定の場合は標準モデルで送られるので、記録もそちらに揃える
+        sendingAIModel = aiModel?.takeIf { it.isNotEmpty() } ?: AIModelConfig.DIALOG_FLOW.name
+        AppLog.setCustomKey(CrashlyticsKey.AI_MODEL, sendingAIModel)
+        Analytics.logSendMessage(sendingAIModel)
         setSendingState(true)
         scope.launch {
             runAITask {
@@ -1487,12 +1541,24 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
      * ユーザーには応答が来ないことしか分からない。
      */
     private suspend fun runAITask(task: suspend () -> Unit) {
+        // 前回の送信で届いた文字数を持ち越さない
+        streamedResponseChars = 0
         try {
             task()
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            Log.e(TAG, "AI request error", e)
+            val errorType = classifyError(e)
+            // ストリーミングでは「一文字も届かない失敗」と「途中まで届いてからの失敗」が
+            // 同じ例外になるため、届いていた文字数を添えて区別できるようにする
+            AppLog.setCustomKey(CrashlyticsKey.STREAMED_CHARS, streamedResponseChars)
+            AppLog.e(
+                TAG,
+                "The AI request failed: type=${errorType.value}, " +
+                        "streamed=$streamedResponseChars chars",
+                e
+            )
+            Analytics.logAIError(errorType, sendingAIModel, streamedResponseChars > 0)
             withContext(Dispatchers.Main) {
                 if (isDestroyed || isFinishing) {
                     return@withContext
@@ -1500,7 +1566,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                 // 応答待ちの吹き出しを消してからエラーを並べる。finallyでも解除するが、
                 // 表示のたびに待ち状態が残らないようここで済ませる
                 setSendingState(false)
-                showErrorMessage(getErrorMessage(e))
+                showErrorMessage(getErrorMessage(errorType))
             }
         } finally {
             // 失敗しても応答待ちのまま固まらないように必ず解除する。
@@ -1536,16 +1602,24 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     }
 
     /**
-     * 例外の種別に応じたエラー文言を返す。
+     * 例外を失敗の種別に分類する。
      * 通信エラーはライブラリ独自の例外に包まれるため、causeを辿って判定する。
+     *
+     * 表示する文言（[getErrorMessage]）とAnalyticsの集計で同じ判定を使い、
+     * 画面に出したものと記録が食い違わないようにする。
      */
-    private fun getErrorMessage(throwable: Throwable): String {
+    private fun classifyError(throwable: Throwable): AIErrorType {
         val causes = generateSequence(throwable) { if (it.cause === it) null else it.cause }
             .take(MAX_CAUSE_DEPTH)
         val isNetworkError = causes.any {
             it is IOException || it is OpenAIIOException || it is UnavailableException
         }
-        return if (isNetworkError) {
+        return if (isNetworkError) AIErrorType.NETWORK else AIErrorType.RESPONSE
+    }
+
+    /** 失敗の種別に応じたエラー文言を返す */
+    private fun getErrorMessage(type: AIErrorType): String {
+        return if (type == AIErrorType.NETWORK) {
             getString(R.string.message_error)
         } else {
             getString(R.string.message_error_ai_response)
@@ -1572,7 +1646,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             return
         }
 
-        Log.d(TAG, "Ad display message count: $count")
+        AppLog.d(TAG) { "Ad display message count: $count" }
         // ロードが終わっていない場合はカウントを持ち越して次の送信で表示し直す
         val isShown = adController.showInterstitial(this)
         setMessageCountForAd(applicationContext, if (isShown) 0 else count)
@@ -1585,7 +1659,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         val supportCount = getSupportRequestCount(applicationContext) + 1
         setSupportRequestCount(applicationContext, supportCount)
         if (supportCount >= supportTimes) {
-            Log.d(TAG, "Support display request count: $supportCount")
+            AppLog.d(TAG) { "Support display request count: $supportCount" }
             setSupportRequestCount(applicationContext, 0)
             showSupportDialog(requireUrls = true)
         }
@@ -1593,13 +1667,12 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
     private fun getDialogFlowSession(): String {
         val session = "youbimiku" + System.currentTimeMillis()
-        Log.d(TAG, "getDialogFlowSession(): $session")
+        AppLog.d(TAG) { "getDialogFlowSession(): $session" }
         return session
     }
 
     private suspend fun dialogFlowTask(text: String) {
         val response = detectIntent.send(text)
-        Log.d(TAG, "response: $response")
         receiveMessage(response)
     }
 
@@ -1610,7 +1683,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
      */
     private suspend fun receiveMessage(text: String?) {
         if (text.isNullOrBlank()) {
-            Log.e(TAG, "Response is empty.")
+            AppLog.e(TAG, "The response is empty.")
+            Analytics.logAIError(AIErrorType.EMPTY_RESPONSE, sendingAIModel)
             withContext(Dispatchers.Main) {
                 if (isDestroyed || isFinishing) {
                     return@withContext
@@ -1641,7 +1715,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         val client = openAI
         if (client == null) {
             // 送信前にも確認しているが、初期化が外れた場合にも黙って終わらないようにする
-            Log.e(TAG, "OpenAI is not initialized.")
+            AppLog.e(TAG, "OpenAI is not initialized.")
+            Analytics.logAIError(AIErrorType.NOT_INITIALIZED, sendingAIModel)
             withContext(Dispatchers.Main) {
                 if (isDestroyed || isFinishing) {
                     return@withContext
@@ -1652,7 +1727,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         }
 
         // 上限での切り詰めは送信の入口（truncateUserText）で済んでいる
-        Log.d(TAG, "sendText: $text")
+        AppLog.d(TAG) { "Send to OpenAI: ${text.length} chars" }
 
         val chatCompletionRequest = ChatCompletionRequest(
             // モデルはRemoteConfigで差し替えられるようにする（アプリの更新なしに変えられる）
@@ -1673,6 +1748,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                 return@collect
             }
             response.append(delta)
+            // 途中で失敗した場合に、どこまで届いていたかが分かるようにする
+            streamedResponseChars = response.length
             // 1文字ごとに描き直すとリスト全体の再描画が続いてしまうので間隔を空ける
             val now = SystemClock.uptimeMillis()
             if (now - lastShownAt < STREAMING_UPDATE_INTERVAL_MS) {
@@ -1691,7 +1768,10 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             finishReason == FinishReason.Length -> "$fullResponse…"
             else -> fullResponse
         }
-        Log.d(TAG, "result: $result")
+        AppLog.d(TAG) {
+            "The OpenAI response is received: ${fullResponse.length} chars, " +
+                    "finishReason=${finishReason?.value}"
+        }
         receiveMessage(result)
     }
 
@@ -1709,7 +1789,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         )
         messages.addAll(loadContextMessages(sendText))
         messages.add(ChatMessage(role = ChatRole.User, content = sendText))
-        Log.d(TAG, "context messages: ${messages.size - 2}")
+        AppLog.d(TAG) { "context messages: ${messages.size - 2}" }
         return messages
     }
 
@@ -1742,7 +1822,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             throw e
         } catch (e: Exception) {
             // 文脈が無くても会話は成立するので、読めない場合は文脈なしで送る
-            Log.e(TAG, "Failed to load the conversation context", e)
+            AppLog.e(TAG, "Failed to load the conversation context", e)
             return emptyList()
         }
 
@@ -1874,7 +1954,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     }
 
     companion object {
-        val TAG = MainActivity::class.java.name.toString()
+        private const val TAG = "MainActivity"
 
         // 履歴に記録される送信者のID
         private const val USER_ID_ME = 0
