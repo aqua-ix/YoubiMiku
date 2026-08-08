@@ -8,8 +8,14 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
+import android.os.SystemClock
 import android.provider.Settings
+import android.text.Editable
+import android.text.InputFilter
+import android.text.TextWatcher
 import android.util.Log
+import android.util.TypedValue
+import android.view.Gravity
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
@@ -21,12 +27,16 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.EditText
+import android.widget.LinearLayout
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
@@ -144,7 +154,13 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     // プロセス再生成前に開いていたアバターページ。次にアバターページを開くときに一度だけ使う
     private var savedAvatarUrl: String? = null
 
-    private var openAIPreviousResponse = ""
+    // ライブラリのChatViewが公開していない入力欄と、そこに足す文字数カウンタ。
+    // 上限はRemoteConfigの取得後に変わり得るため参照を持つ
+    private var inputBox: EditText? = null
+    private var inputLengthCounter: TextView? = null
+
+    // 入力欄に反映済みの上限。カウンタの表示に使う
+    private var maxInputLength = 0
 
     /**
      * ミクのアイコン。メッセージごとに読み込むと履歴の件数だけBitmapが作られ、
@@ -173,7 +189,10 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     // 応答待ちかどうか。判定と更新をメインスレッドに揃えて、連続送信で競合しないようにする
     private var isSending = false
 
-    // 応答待ちを示すだけの吹き出し。履歴には残さないので消すために参照を持つ
+    /**
+     * 応答待ちを示す吹き出し。履歴には残さないので消すために参照を持つ。
+     * 応答が届き始めたらこの吹き出しに流し込んで途中経過を見せる（[showStreamingResponse]）。
+     */
     private var typingMessage: Message? = null
 
     private var actionBarSize = 0
@@ -282,9 +301,14 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     private fun onRemoteConfigReady() {
         Log.d(TAG, "Remote config ready: adNetwork=${RemoteConfigProvider.adNetwork}, " +
                 "adDisplayRequestTimes=${RemoteConfigProvider.adDisplayRequestTimes}, " +
-                "openAIEnabled=${RemoteConfigProvider.isOpenAIEnabled}")
+                "openAIEnabled=${RemoteConfigProvider.isOpenAIEnabled}, " +
+                "openAIModel=${RemoteConfigProvider.openAIModel}, " +
+                "maxContextMessages=${RemoteConfigProvider.maxContextMessages}, " +
+                "maxContextChars=${RemoteConfigProvider.maxContextChars}")
         setupOpenAI()
         setupAdNetwork()
+        // 取得した上限がフォールバック値と違う場合があるため、入力欄に反映し直す
+        applyInputLengthLimit()
         // RemoteConfigの値で表示を切り替えるメニューを作り直す
         invalidateOptionsMenu()
     }
@@ -322,6 +346,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         binding.chatView.setInputTextHint(getString(R.string.input_text_hint))
         binding.chatView.setOnClickSendButtonListener(this)
         binding.chatView.setMessageMaxWidth(640)
+        setupInputLengthCounter()
 
         CoroutineScope(Dispatchers.Main).launch {
             delay(500)
@@ -333,6 +358,73 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                 }
             })
         }
+    }
+
+    /**
+     * 入力欄に文字数の上限とカウンタを用意する。
+     *
+     * 上限（max_user_text_length）を超えた分を送信時に黙って捨てると、
+     * 切り詰められたことがユーザーに分からない。入力そのものを上限で止めたうえで、
+     * いま何文字入力しているのかを送信ボタンの隣に出す。
+     */
+    private fun setupInputLengthCounter() {
+        // ライブラリのChatViewは入力欄を公開していないためIDで引く
+        // （android.nonTransitiveRClass=falseなのでライブラリのIDもアプリのRから参照できる）
+        val input = binding.chatView.findViewById<EditText>(R.id.inputBox)
+        val row = input?.parent as? ViewGroup
+        if (input == null || row == null) {
+            // ライブラリのレイアウトが変わった場合でも会話は続けられるようにする
+            Log.w(TAG, "The input box is not found. Skip the input length counter.")
+            return
+        }
+        inputBox = input
+
+        val counter = TextView(this).apply {
+            setTextSize(
+                TypedValue.COMPLEX_UNIT_PX,
+                resources.getDimension(R.dimen.input_counter_font_size)
+            )
+            setTextColor(ContextCompat.getColor(context, R.color.inputCounterText))
+            val padding = resources.getDimensionPixelSize(R.dimen.input_counter_padding)
+            setPadding(padding, 0, padding, 0)
+        }
+        val params = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+        ).apply { gravity = Gravity.CENTER_VERTICAL }
+        // 入力欄と送信ボタンの間に置く
+        row.addView(counter, row.indexOfChild(input) + 1, params)
+        inputLengthCounter = counter
+
+        binding.chatView.addInputChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) =
+                Unit
+
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
+
+            override fun afterTextChanged(s: Editable?) {
+                updateInputLengthCounter(s?.length ?: 0)
+            }
+        })
+        applyInputLengthLimit()
+    }
+
+    /**
+     * 入力欄に文字数の上限を反映する。
+     * RemoteConfigの取得後にも呼ばれるため、取得前のフォールバック値で固定されない。
+     */
+    private fun applyInputLengthLimit() {
+        val input = inputBox ?: return
+        // 1文字ごとにRemoteConfigを読まないよう、上限を反映するときだけ読んで覚えておく
+        maxInputLength = RemoteConfigProvider.maxUserTextLength
+        // すでに入力されている文字は消さない（打った内容が勝手に消えるのを避ける）。
+        // 上限を超えたまま送信された場合はopenAITaskが切り詰める
+        input.filters = arrayOf(InputFilter.LengthFilter(maxInputLength))
+        updateInputLengthCounter(input.text?.length ?: 0)
+    }
+
+    private fun updateInputLengthCounter(length: Int) {
+        inputLengthCounter?.text = getString(R.string.input_length_counter, length, maxInputLength)
     }
 
     private fun showActionSheet(message: Message) {
@@ -1547,42 +1639,154 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         val sendText = if (text.length <= maxLength) text else text.substring(0, maxLength)
         Log.d(TAG, "sendText: $sendText")
 
-        val maxTokens = RemoteConfigProvider.maxTokens
-
         val chatCompletionRequest = ChatCompletionRequest(
-            model = ModelId(Constants.OPENAI_MODEL),
-            messages = listOf(
-                ChatMessage(
-                    role = ChatRole.System,
-                    content = getString(R.string.openai_system_prompt, userAccount.getName()),
-                ),
-                ChatMessage(
-                    role = ChatRole.Assistant,
-                    content = openAIPreviousResponse,
-                ),
-                ChatMessage(
-                    role = ChatRole.User,
-                    content = sendText
-                )
-            ),
-            maxTokens = maxTokens
+            // モデルはRemoteConfigで差し替えられるようにする（アプリの更新なしに変えられる）
+            model = ModelId(RemoteConfigProvider.openAIModel),
+            messages = buildOpenAIMessages(sendText),
+            maxTokens = RemoteConfigProvider.maxTokens
         )
-        val completion = client.chatCompletion(chatCompletionRequest)
-        Log.d(TAG, "completion: $completion")
-        val choice = completion.choices.first()
-        val response = choice.message.content
-        Log.d(TAG, "response: $response")
+
+        // 応答を待たずに届いた分から表示する。長い応答でも黙っている時間が短くなる
+        val response = StringBuilder()
+        var finishReason: FinishReason? = null
+        var lastShownAt = 0L
+        client.chatCompletions(chatCompletionRequest).collect { chunk ->
+            val choice = chunk.choices.firstOrNull() ?: return@collect
+            choice.finishReason?.let { finishReason = it }
+            val delta = choice.delta.content
+            if (delta.isNullOrEmpty()) {
+                return@collect
+            }
+            response.append(delta)
+            // 1文字ごとに描き直すとリスト全体の再描画が続いてしまうので間隔を空ける
+            val now = SystemClock.uptimeMillis()
+            if (now - lastShownAt < STREAMING_UPDATE_INTERVAL_MS) {
+                return@collect
+            }
+            lastShownAt = now
+            val shownText = response.toString()
+            withContext(Dispatchers.Main) { showStreamingResponse(shownText) }
+        }
+
+        val fullResponse = response.toString()
         val result = when {
             // 応答が空のまま末尾に記号を足すと空でなくなってしまうので先に判定する
-            response.isNullOrBlank() -> null
-            choice.finishReason == FinishReason.Length -> "$response…"
-            else -> response
+            fullResponse.isBlank() -> null
+            // 上限に達して途切れた場合は、続きがあることが分かるようにする
+            finishReason == FinishReason.Length -> "$fullResponse…"
+            else -> fullResponse
         }
         Log.d(TAG, "result: $result")
-        if (result != null) {
-            openAIPreviousResponse = result
-        }
         receiveMessage(result)
+    }
+
+    /**
+     * OpenAIに送るメッセージを組み立てる。
+     *
+     * システムプロンプト・直近の会話・今回の発言の順に並べる。
+     */
+    private suspend fun buildOpenAIMessages(sendText: String): List<ChatMessage> {
+        val messages = mutableListOf(
+            ChatMessage(
+                role = ChatRole.System,
+                content = getString(R.string.openai_system_prompt, userAccount.getName()),
+            )
+        )
+        messages.addAll(loadContextMessages(sendText))
+        messages.add(ChatMessage(role = ChatRole.User, content = sendText))
+        Log.d(TAG, "context messages: ${messages.size - 2}")
+        return messages
+    }
+
+    /**
+     * 直近の会話を文脈として読み出す。
+     *
+     * 履歴（Room）を唯一の情報源にする。アプリを再起動しても文脈が続くのはこのため。
+     * 送る分だけトークンを消費するので、件数（max_context_messages）と
+     * 合計文字数（max_context_chars）の両方で上限を設け、古いものから落とす。
+     * 全件は読まない（履歴は増え続けるため）。
+     *
+     * 今回の発言は[onClick]が並行して履歴に保存するため、読んだ時点で
+     * 入っている場合と入っていない場合がある。最新の1件が今回の発言だった場合は
+     * 落として、呼び出し側が必ず最後に1件だけ並べられるようにする。
+     */
+    private suspend fun loadContextMessages(sendText: String): List<ChatMessage> {
+        val maxMessages = RemoteConfigProvider.maxContextMessages
+        val maxChars = RemoteConfigProvider.maxContextChars
+        if (maxMessages <= 0 || maxChars <= 0) {
+            return emptyList()
+        }
+
+        val latest = try {
+            // 今回の発言が含まれていた場合に落とす分を見込んで1件多く読む
+            appDatabase.messageDao().getLatest(maxMessages + 1)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // 文脈が無くても会話は成立するので、読めない場合は文脈なしで送る
+            Log.e(TAG, "Failed to load the conversation context", e)
+            return emptyList()
+        }
+
+        val newest = latest.firstOrNull()
+        val history = if (newest != null && newest.userId == USER_ID_ME && newest.text == sendText) {
+            latest.drop(1)
+        } else {
+            latest.take(maxMessages)
+        }
+
+        // 新しい順に読んでいるので、文字数の上限は新しいものから詰めて古いものを落とす
+        var remainingChars = maxChars
+        val context = mutableListOf<ChatMessage>()
+        for (entity in history) {
+            if (entity.text.isBlank()) {
+                // 空の吹き出しはメッセージとして送れない
+                continue
+            }
+            remainingChars -= entity.text.length
+            if (remainingChars < 0) {
+                break
+            }
+            context.add(
+                ChatMessage(
+                    // ミクのIDは標準モデル・GPTモデルで別だが、どちらもミクの発言として渡す
+                    role = if (entity.userId == USER_ID_ME) ChatRole.User else ChatRole.Assistant,
+                    content = entity.text,
+                )
+            )
+        }
+        // 送るのは古い順
+        return context.asReversed()
+    }
+
+    /**
+     * 届いた途中までの応答を応答待ちの吹き出しに流し込む。メインスレッドからのみ呼ぶ。
+     *
+     * 完成した応答は[receiveMessage]が吹き出しを作り直して履歴に保存するので、
+     * ここでの表示は途中経過を見せるだけのもの。失敗した場合も
+     * 応答待ちの吹き出しごと消える（[setSendingState]）ので、消し忘れは起きない。
+     */
+    private fun showStreamingResponse(text: String) {
+        if (isDestroyed || isFinishing) {
+            return
+        }
+        val typing = typingMessage ?: return
+        val messageView = binding.chatView.getMessageView()
+        if (!messageView.messageList.contains(typing)) {
+            // 履歴の消去などで吹き出しが無くなっている
+            return
+        }
+        // 伸びていく吹き出しを追いかけるのは、末尾を表示している場合だけにする。
+        // 遡って読んでいる最中に引き戻さないため
+        val isAtBottom = messageView.lastVisiblePosition >= messageView.count - 1
+        typing.text = text
+        // ライブラリには再描画だけを行うAPIが無いため、状態を変えずに更新して描き直させる
+        binding.chatView.updateMessageStatus(typing, typing.status)
+        if (isAtBottom) {
+            // ChatView.scrollToEnd()はsmoothScrollToPositionで、更新ごとに呼ぶと
+            // スクロールのアニメーションが積み上がってメインスレッドが空かなくなる
+            messageView.setSelection(messageView.count - 1)
+        }
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -1661,6 +1865,14 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
         // 一度に読み込む履歴の件数
         private const val HISTORY_PAGE_SIZE = 100
+
+        /**
+         * ストリーミング中に表示を更新する間隔。
+         *
+         * チャンクごとに描き直すとリストの再描画とスクロールが続き、
+         * 遅い端末ではタップに反応できなくなる（ANR）ほどメインスレッドが埋まる。
+         */
+        private const val STREAMING_UPDATE_INTERVAL_MS = 250L
 
         private const val STATE_AVATAR_MODE = "state_avatar_mode"
         private const val STATE_AVATAR_URL = "state_avatar_url"

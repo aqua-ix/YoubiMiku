@@ -3,6 +3,9 @@
     <dimen name="dp_19">19dp</dimen>
     <!-- チャットのアイコンの表示サイズ。chatmessageviewのicon_normalに合わせる -->
     <dimen name="chat_icon_size">50dp</dimen>
+    <!-- 入力欄の文字数カウンタ -->
+    <dimen name="input_counter_padding">4dp</dimen>
+    <dimen name="input_counter_font_size">12sp</dimen>
     <dimen name="support_button_height">48dp</dimen>
     <dimen name="support_button_margin">10dp</dimen>
 </resources>
