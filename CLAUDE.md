@@ -39,13 +39,13 @@ Single-module Android app with an activity-centric architecture. Nearly all UI l
 
 - **UI**: `MainActivity` (ChatView + WebView for avatar mode), `UserNameDialogFragment`
 - **AI Integration**: `DetectIntent.kt` (DialogFlow v2), OpenAI via `com.aallam.openai` library
-- **Config**: `config/` package — type-safe enums for AI model, font size, language, UI mode; `SharedPreferenceManager` wraps SharedPreferences; Firebase RemoteConfig controls feature flags
+- **Config**: `config/` package — type-safe enums for AI model, font size, language, UI mode; `SharedPreferenceManager` wraps SharedPreferences; `RemoteConfigProvider` wraps Firebase RemoteConfig, which controls feature flags
 - **Data**: Room database (`database/` package) stores chat messages; Firebase Realtime DB stores API keys and credentials at runtime
 - **Utilities**: `TranslateUtil` (EN↔JP translation via HTTP), `ReportUtil` (message reporting)
 
 ### Configuration System
 
-Firebase RemoteConfig drives runtime feature flags (OpenAI enablement, ad network selection, display frequency, AI model parameters). Local preferences use `SharedPreferenceManager` with keys defined as constants.
+Firebase RemoteConfig drives runtime feature flags (OpenAI enablement, ad network selection, display frequency, AI model parameters). Values are read through `config/RemoteConfigProvider`, which applies `res/xml/remote_config_defaults.xml`, fetches, and reports "not fetched yet / not set / invalid" as `null` so callers can pick a fallback. Initialization that depends on RemoteConfig (ad network, OpenAI, menu visibility) runs in `MainActivity.onRemoteConfigReady()` after the fetch completes — a failed fetch still runs it with default or cached values. Local preferences use `SharedPreferenceManager` with keys defined as constants.
 
 ### Database
 
