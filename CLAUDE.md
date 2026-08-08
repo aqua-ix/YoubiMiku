@@ -26,7 +26,7 @@ YoubiMiku (ユビキタ初音ミク) is an Android chat application where users 
 ## Build Configuration
 
 - **Kotlin 1.9.23**, **AGP 8.7.2**, **JDK 17** (Temurin in CI), Java target 1.8
-- **Compile/Target SDK 35**, Min SDK 23
+- **Compile/Target SDK 36**, Min SDK 23
 - **Two product flavors**: `ads` (with ad SDKs) and `noAds` (ad-free), each with its own source set (`app/src/ads/`, `app/src/noAds/`) and manifest
 - Namespace: `com.aqua_ix.youbimiku`
 - ViewBinding enabled, Room schema exported via KSP
