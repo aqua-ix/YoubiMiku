@@ -109,6 +109,9 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     private var pendingAvatarMode = false
     private var pendingAudioPermissionRequest: PermissionRequest? = null
 
+    // プロセス再生成前に開いていたアバターページ。次にアバターページを開くときに一度だけ使う
+    private var savedAvatarUrl: String? = null
+
     private var openAIPreviousResponse = ""
 
     private val job = SupervisorJob()
@@ -172,6 +175,13 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         handleWindowInsets(view)
 
         detectIntent = DetectIntent(this, getDialogFlowSession())
+
+        // プロセス再生成からの復帰時は、アバターモードだった場合だけ開いていたページを引き継ぐ
+        savedAvatarUrl = if (savedInstanceState?.getBoolean(STATE_AVATAR_MODE) == true) {
+            savedInstanceState.getString(STATE_AVATAR_URL)
+        } else {
+            null
+        }
 
         initChatView()
         initDatabase()
@@ -607,11 +617,22 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     }
 
     private fun loadAvatarPage() {
+        val restoredUrl = savedAvatarUrl
+        savedAvatarUrl = null
+        if (restoredUrl?.startsWith(BuildConfig.AVATAR_BASE_URL) == true) {
+            Log.d(TAG, "Restore the avatar page: $restoredUrl")
+            loadAvatarUrl(restoredUrl)
+            return
+        }
+        loadAvatarUrl(BuildConfig.AVATAR_BASE_URL)
+    }
+
+    private fun loadAvatarUrl(url: String) {
         val headers = mapOf(
             "CF-Access-Client-Id" to avatarClientId,
             "CF-Access-Client-Secret" to avatarClientSecret
         )
-        webView.loadUrl(BuildConfig.AVATAR_BASE_URL, headers)
+        webView.loadUrl(url, headers)
     }
 
     private fun showUserNameDialog(cancelable: Boolean = true) {
@@ -1043,6 +1064,18 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         }
     }
 
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putBoolean(STATE_AVATAR_MODE, isAvatarMode)
+        if (!isAvatarMode || !::webView.isInitialized) {
+            return
+        }
+        // 復帰させられるのは開いていたページまで。ページ内のJS状態（アバターの姿勢や会話の途中）は戻らない。
+        // WebView.saveState() は使わない。モード切り替えで積まれた about:blank まで含む
+        // 前後の履歴が丸ごと戻り、戻るキーでチャットモードに帰れなくなるため。
+        outState.putString(STATE_AVATAR_URL, webView.url)
+    }
+
     public override fun onPause() {
         isActivityResumed = false
         if (::webView.isInitialized) {
@@ -1078,5 +1111,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
     companion object {
         val TAG = MainActivity::class.java.name.toString()
+
+        private const val STATE_AVATAR_MODE = "state_avatar_mode"
+        private const val STATE_AVATAR_URL = "state_avatar_url"
     }
 }
