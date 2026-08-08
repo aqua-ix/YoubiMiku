@@ -3,4 +3,6 @@
     <color name="colorPrimary">#20A9AF</color>
     <color name="colorPrimaryDark">#137A7F</color>
     <color name="colorAccent">#E12885</color>
+    <!-- 入力欄の文字数カウンタ。入力の邪魔にならないよう本文より薄くする -->
+    <color name="inputCounterText">#757575</color>
 </resources>
