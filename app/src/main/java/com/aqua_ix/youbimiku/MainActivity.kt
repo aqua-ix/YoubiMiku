@@ -79,7 +79,6 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
@@ -139,10 +138,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
     // 応答待ちかどうか。判定と更新をメインスレッドに揃えて、連続送信で競合しないようにする
     private var isSending = false
-
-    // 実行中のリクエストを途中で止めるためだけに持つ。
-    // 応答待ちの判定にJobを使うと連続タップで競合するのでisSendingで行う
-    private var aiTaskJob: Job? = null
 
     // 応答待ちを示すだけの吹き出し。履歴には残さないので消すために参照を持つ
     private var typingMessage: Message? = null
@@ -267,10 +262,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
     private fun onOpenAIError() {
         openAI = null
-        // 実行中のリクエストは使えなくなったクライアントのものなので止める。
-        // 止めずに応答待ちだけ解除すると、あとから届いた応答が新しい会話に割り込む。
-        // 解除はrunAITaskのfinallyが行うので、送信ボタンもここで戻る
-        aiTaskJob?.cancel()
+        // 応答待ちの状態はここでは触らない。実行中のリクエストはrunAITaskのfinallyが
+        // 必ず解除するので、割り込んで解除するとあとから届いた応答が新しい会話に混ざる
         showErrorMessage(getString(R.string.message_error_openai))
         mikuAccount.setName(getString(R.string.miku_name))
         setAIModel(this, AIModelConfig.DIALOG_FLOW)
@@ -1083,7 +1076,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         // コルーチンの中で判定すると、連続タップでどちらもすり抜けることがある
         val aiModel = getAIModel(this)
         setSendingState(true)
-        aiTaskJob = scope.launch {
+        scope.launch {
             runAITask {
                 when (aiModel) {
                     AIModelConfig.OPEN_AI.name -> openAITask(text)
@@ -1145,6 +1138,9 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                 if (isDestroyed || isFinishing) {
                     return@withContext
                 }
+                // 応答待ちの吹き出しを消してからエラーを並べる。finallyでも解除するが、
+                // 表示のたびに待ち状態が残らないようここで済ませる
+                setSendingState(false)
                 showErrorMessage(getErrorMessage(e))
             }
         } finally {
@@ -1162,10 +1158,16 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     /**
      * ミク側の吹き出しとしてエラーを表示する。
      * 再起動後には意味を持たないため、履歴（DB）には保存しない。
+     *
+     * 応答待ちの吹き出しはsetSendingStateだけが出し入れする。ここで消すと、
+     * リクエストと無関係なエラー（onOpenAIErrorなど）でも消えてしまい、
+     * 応答待ちなのに何も起きていないように見える。
      */
     private fun showErrorMessage(text: String) {
-        // 応答待ちの吹き出しを残したままエラーを並べないように先に消す
-        hideTypingIndicator()
+        if (isDestroyed || isFinishing) {
+            // Firebaseのリスナは破棄後にも呼ばれ得るので、ここでまとめて弾く
+            return
+        }
         val error = Message.Builder()
             .setUser(mikuAccount)
             .setRight(false)
@@ -1265,9 +1267,14 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             .setText(text)
             .build()
         withContext(Dispatchers.Main) {
+            if (isDestroyed || isFinishing) {
+                return@withContext
+            }
+            // 応答の吹き出しの下に応答待ちの吹き出しが残らないよう先に消す
             hideTypingIndicator()
             binding.chatView.receive(receivedMessage)
         }
+        // 表示できなくても会話は成立しているので履歴には残す
         appDatabase.messageDao().insert(messageToEntity(receivedMessage))
     }
 
