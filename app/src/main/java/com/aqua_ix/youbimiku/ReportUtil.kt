@@ -1,17 +1,30 @@
 package com.aqua_ix.youbimiku
 
 import android.content.Context
+import android.util.Log
 import android.widget.EditText
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
+import io.ktor.http.ContentType
+import io.ktor.http.contentType
+import io.ktor.http.isSuccess
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.net.HttpURLConnection
-import java.net.URL
+import org.json.JSONObject
 
 object ReportUtil {
+
+    private const val TAG = "ReportUtil"
+
+    private const val FIELD_TIMESTAMP = "timestamp"
+    private const val FIELD_USER_NAME = "userName"
+    private const val FIELD_TEXT = "text"
+    private const val FIELD_REASON = "reason"
 
     fun showReportReasonDialog(
         context: Context,
@@ -50,44 +63,40 @@ object ReportUtil {
         reason: String,
         scope: CoroutineScope
     ) {
+        // 文字列連結では本文の " や \ 、改行でJSONが壊れて送信できず、
+        // 中身次第では他の項目を差し替えられてしまうため、JSONObjectで組み立てる
+        val payload = JSONObject()
+            .put(FIELD_TIMESTAMP, System.currentTimeMillis().toString())
+            .put(FIELD_USER_NAME, userName)
+            .put(FIELD_TEXT, text)
+            .put(FIELD_REASON, reason)
+            .toString()
+
         scope.launch {
-            try {
-                val url = URL(BuildConfig.REPORT_END_POINT)
-                val urlConnection = url.openConnection() as HttpURLConnection
-                urlConnection.setRequestProperty("Content-Type", "application/json")
-                urlConnection.doOutput = true
-
-                val data =
-                    """{"timestamp": "${System.currentTimeMillis()}", "userName": "$userName", "text": "$text", "reason": "$reason"}"""
-                urlConnection.outputStream.use { it.write(data.toByteArray()) }
-
-                val responseCode = urlConnection.responseCode
-                if (responseCode == HttpURLConnection.HTTP_OK) {
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(
-                            context,
-                            context.getString(R.string.message_reported),
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    }
-                } else {
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(
-                            context,
-                            context.getString(R.string.message_reported_error),
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    }
-                }
-            } catch (ex: Exception) {
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(
-                        context,
-                        context.getString(R.string.message_reported_error),
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
+            val isReported = send(payload)
+            withContext(Dispatchers.Main) {
+                val message =
+                    if (isReported) R.string.message_reported else R.string.message_reported_error
+                Toast.makeText(context, context.getString(message), Toast.LENGTH_SHORT).show()
             }
         }
+    }
+
+    private suspend fun send(payload: String): Boolean = try {
+        // doOutputによる暗黙のPOSTに頼らず、メソッドを明示する
+        val response = HttpClientProvider.client.post(BuildConfig.REPORT_END_POINT) {
+            contentType(ContentType.Application.Json)
+            setBody(payload)
+        }
+        val isSuccess = response.status.isSuccess()
+        if (!isSuccess) {
+            Log.e(TAG, "Unexpected status code: ${response.status.value}")
+        }
+        isSuccess
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        Log.e(TAG, "Failed to report the message.", e)
+        false
     }
 }
