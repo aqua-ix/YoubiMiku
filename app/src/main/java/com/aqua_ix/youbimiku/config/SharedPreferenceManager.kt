@@ -35,6 +35,14 @@ open class SharedPreferenceManager {
         fun put(context: Context, key: String, value: Boolean) {
             instance(context).edit().putBoolean(key, value).apply()
         }
+
+        fun contains(context: Context, key: String): Boolean {
+            return instance(context).contains(key)
+        }
+
+        fun remove(context: Context, key: String) {
+            instance(context).edit().remove(key).apply()
+        }
     }
 }
 
@@ -44,7 +52,7 @@ enum class Key {
     LANGUAGE,
     LAUNCH_COUNT,
     AI_MODEL,
-    OPENAI_REQUEST_COUNT,
+    MESSAGE_COUNT_FOR_AD,
     SUPPORT_REQUEST_COUNT,
     IS_SUPPORTER,
     UI_MODE

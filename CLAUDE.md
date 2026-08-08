@@ -54,7 +54,7 @@ Room ORM with a single `MessageEntity` table. Two schema versions with auto-migr
 
 ### Ad Integration
 
-Two ad networks (iMobile, IronSource) switchable via RemoteConfig. Interstitial ads trigger after a configurable message count.
+Two ad networks (iMobile, IronSource) switchable via RemoteConfig. Interstitial ads trigger after a configurable message count (`ad_display_request_times`). `MainActivity.showInterstitialIfNeeded()` counts every sent message regardless of the AI model in `Key.MESSAGE_COUNT_FOR_AD` (`config/AdConfig.kt`), then judges and resets in one synchronous place. `AdController.showInterstitial()` reports whether the ad was actually shown, so the count is kept — and retried on the next message — while the ad network has no inventory. Readiness checks and (re)loading stay inside `AdNetworkController`: IronSource loads from the `IronSource.init()` callback (loading earlier fails with "init() had failed") and again after `onAdClosed`.
 
 Ad SDKs are declared with the `adsImplementation` configuration, so only the `ads` flavor bundles them. `MainActivity` never references ad SDK classes directly: it goes through the `AdController` interface (`ads/AdController.kt` in the `main` source set) and obtains an instance from `AdControllerFactory`, which is defined per flavor — `AdNetworkController` (iMobile/IronSource) in `app/src/ads/`, `NoOpAdController` in `app/src/noAds/`. The `noAds` manifest also removes the `AD_ID` permission that dependencies merge in.
 

@@ -17,7 +17,9 @@ class NoOpAdController : AdController {
         Log.d(TAG, "Ad network is disabled by flavor.")
     }
 
-    override fun showInterstitial(activity: AppCompatActivity) {}
+    // 広告を表示することはないので常にfalse。呼び出し側のカウントは閾値に留まるだけで、
+    // このフレーバーでは使われない
+    override fun showInterstitial(activity: AppCompatActivity): Boolean = false
 
     override fun onResume(activity: AppCompatActivity) {}
 
