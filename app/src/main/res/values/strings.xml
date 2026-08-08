@@ -38,6 +38,7 @@
     <string name="setting_language_en">English</string>
 
     <string name="clear_message_history">Clear Chat History</string>
+    <string name="message_history_no_more">There are no older messages.</string>
 
     <string name="official_account">X Account</string>
     <string name="official_account_error">App not found</string>
