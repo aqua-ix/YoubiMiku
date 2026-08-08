@@ -16,10 +16,10 @@
 #   public *;
 #}
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# Crashlyticsのスタックトレースを行番号付きで読めるようにする。
+# 難読化（#24）を有効にするまでは効果を持たないが、有効にした時点で
+# マッピングファイルのアップロード設定（app/build.gradle.kts）と揃って機能する。
+-keepattributes SourceFile,LineNumberTable
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# 元のソースファイル名は残さない（行番号はマッピングで復元できる）
+-renamesourcefileattribute SourceFile

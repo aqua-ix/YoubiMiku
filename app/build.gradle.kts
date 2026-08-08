@@ -1,8 +1,12 @@
+import com.google.firebase.crashlytics.buildtools.gradle.CrashlyticsExtension
+
 plugins {
     id("com.android.application")
     kotlin("android")
     id("kotlin-parcelize")
     id("com.google.gms.google-services")
+    // google-servicesの後に適用する（google-services.jsonからアプリIDを読む）
+    id("com.google.firebase.crashlytics")
     id("com.google.android.libraries.mapsplatform.secrets-gradle-plugin")
     id("com.google.devtools.ksp")
 }
@@ -28,11 +32,20 @@ android {
         getByName("debug") {
             isMinifyEnabled = false
             manifestPlaceholders["imobile_Testing"] = "true"
+            configure<CrashlyticsExtension> {
+                // 難読化していないマッピングを毎ビルド送っても意味がなく、ビルドが遅くなるだけ
+                mappingFileUploadEnabled = false
+            }
         }
         getByName("release") {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro")
             manifestPlaceholders["imobile_Testing"] = "false"
+            configure<CrashlyticsExtension> {
+                // R8を有効にする（#24）までマッピングは出ないので実質何も送らないが、
+                // 有効にしておけば難読化を始めた時点でスタックトレースが読める形で届く
+                mappingFileUploadEnabled = true
+            }
         }
     }
     flavorDimensions += listOf("main")
@@ -108,6 +121,7 @@ dependencies {
     implementation(platform("com.google.firebase:firebase-bom:33.5.1"))
     implementation("com.google.firebase:firebase-config-ktx")
     implementation("com.google.firebase:firebase-analytics-ktx")
+    implementation("com.google.firebase:firebase-crashlytics-ktx")
     implementation("com.google.android.gms:play-services-basement:18.4.0")
 
     // 広告SDKは ads フレーバーにのみ同梱する
