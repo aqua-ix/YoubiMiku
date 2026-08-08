@@ -38,7 +38,7 @@ Single-module Android app with an activity-centric architecture. Nearly all UI l
 ### Key Layers
 
 - **UI**: `MainActivity` (ChatView + WebView for avatar mode), `UserNameDialogFragment`
-- **AI Integration**: `DetectIntent.kt` (DialogFlow v2), OpenAI via `com.aallam.openai` library. Both clients are built lazily off the main thread — see [Threading](#threading)
+- **AI Integration**: `DetectIntent.kt` (DialogFlow v2), OpenAI via `com.aallam.openai` library. Both clients are constructed off the main thread (the Dialogflow client lazily on the first send, the OpenAI client as soon as the credentials arrive) — see [Threading](#threading)
 - **Config**: `config/` package — type-safe enums for AI model, font size, language, UI mode; `SharedPreferenceManager` wraps SharedPreferences; `RemoteConfigProvider` wraps Firebase RemoteConfig, which controls feature flags
 - **Data**: Room database (`database/` package) stores chat messages; Firebase Realtime DB stores API keys and credentials at runtime
 - **Ads**: `ads/` package — `AdController` interface in `main`, implementations per flavor
