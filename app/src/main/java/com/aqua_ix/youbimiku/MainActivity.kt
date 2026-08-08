@@ -79,6 +79,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
@@ -138,6 +139,10 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
     // 応答待ちかどうか。判定と更新をメインスレッドに揃えて、連続送信で競合しないようにする
     private var isSending = false
+
+    // 実行中のリクエストを途中で止めるためだけに持つ。
+    // 応答待ちの判定にJobを使うと連続タップで競合するのでisSendingで行う
+    private var aiTaskJob: Job? = null
 
     // 応答待ちを示すだけの吹き出し。履歴には残さないので消すために参照を持つ
     private var typingMessage: Message? = null
@@ -262,11 +267,10 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
     private fun onOpenAIError() {
         openAI = null
-        if (isSending) {
-            // 実行中のリクエストは使えなくなったクライアントのものなので応答は返らない。
-            // 解除しないと送信ボタンが戻らないまま入力できなくなる
-            setSendingState(false)
-        }
+        // 実行中のリクエストは使えなくなったクライアントのものなので止める。
+        // 止めずに応答待ちだけ解除すると、あとから届いた応答が新しい会話に割り込む。
+        // 解除はrunAITaskのfinallyが行うので、送信ボタンもここで戻る
+        aiTaskJob?.cancel()
         showErrorMessage(getString(R.string.message_error_openai))
         mikuAccount.setName(getString(R.string.miku_name))
         setAIModel(this, AIModelConfig.DIALOG_FLOW)
@@ -1079,7 +1083,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         // コルーチンの中で判定すると、連続タップでどちらもすり抜けることがある
         val aiModel = getAIModel(this)
         setSendingState(true)
-        scope.launch {
+        aiTaskJob = scope.launch {
             runAITask {
                 when (aiModel) {
                     AIModelConfig.OPEN_AI.name -> openAITask(text)
