@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <dimen name="dp_19">19dp</dimen>
+    <!-- チャットのアイコンの表示サイズ。chatmessageviewのicon_normalに合わせる -->
+    <dimen name="chat_icon_size">50dp</dimen>
     <dimen name="support_button_height">48dp</dimen>
     <dimen name="support_button_margin">10dp</dimen>
 </resources>

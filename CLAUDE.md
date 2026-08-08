@@ -62,6 +62,12 @@ Blocking I/O must not run on the main thread.
 
 Room ORM with a single `MessageEntity` table. Two schema versions with auto-migration (v1→v2). DAO in `MessageDao.kt`, conversions in `DatabaseUtil.kt`.
 
+`MessageDao` never reads the whole table: `getLatest(limit)` returns the newest page and `getOlderThan(sendTime, id, limit)` walks backwards from the oldest row already loaded, so the pages do not shift when new messages arrive. Both order explicitly by `sendTime DESC, id DESC` instead of relying on the implicit rowid order — `sendTime` is `0` for every row written before the column existed, and `id` breaks those ties into insertion order. `MainActivity` loads one page (`HISTORY_PAGE_SIZE`) at startup and loads the previous page when the user pulls the chat list down (`ChatView` wraps the list in a `SwipeRefreshLayout`); the gesture is disabled again once a page comes back short. `chatmessageview` has no API to prepend to `MessageView` or to redraw it, so `prependMessages()` inserts into the public `messageList` and then adds and removes a throwaway message to make the library re-sort and redraw, keeping the reading position with `setSelectionFromTop`.
+
+### Chat Icons
+
+`R.drawable.normal` is the icon of every message Miku sends. It lives in `drawable-nodpi`, because a bitmap in `drawable/` counts as mdpi and `decodeResource` then scales it up by the screen density. It is decoded once into `MainActivity.mikuIcon` and shared by every `User` instance; `decodeSampledBitmap` (`BitmapUtil.kt`) shrinks it to the displayed size (`R.dimen.chat_icon_size`, which matches the library's `icon_normal`). Decoding it per message produced a ~21 MB bitmap each time at 420 dpi and got the process killed by `lowmemorykiller` once the history reached a few hundred messages.
+
 ### Ad Integration
 
 Two ad networks (iMobile, IronSource) switchable via RemoteConfig. Interstitial ads trigger after a configurable message count (`ad_display_request_times`). `MainActivity.showInterstitialIfNeeded()` counts every sent message regardless of the AI model in `Key.MESSAGE_COUNT_FOR_AD` (`config/AdConfig.kt`), then judges and resets in one synchronous place. `AdController.showInterstitial()` reports whether the ad was actually shown, so the count is kept — and retried on the next message — while the ad network has no inventory. Readiness checks and (re)loading stay inside `AdNetworkController`: IronSource loads from the `IronSource.init()` callback (loading earlier fails with "init() had failed") and again after `onAdClosed`.

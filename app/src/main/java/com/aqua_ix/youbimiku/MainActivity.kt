@@ -6,7 +6,6 @@ import android.content.ClipboardManager
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
@@ -65,6 +64,7 @@ import com.aqua_ix.youbimiku.config.setSupporter
 import com.aqua_ix.youbimiku.config.setSupportRequestCount
 import com.aqua_ix.youbimiku.config.setUIMode
 import com.aqua_ix.youbimiku.database.AppDatabase
+import com.aqua_ix.youbimiku.database.MessageEntity
 import com.aqua_ix.youbimiku.database.entityToMessage
 import com.aqua_ix.youbimiku.database.messageToEntity
 import com.aqua_ix.youbimiku.databinding.ActivityMainBinding
@@ -145,6 +145,18 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     private var savedAvatarUrl: String? = null
 
     private var openAIPreviousResponse = ""
+
+    /**
+     * ミクのアイコン。メッセージごとに読み込むと履歴の件数だけBitmapが作られ、
+     * メモリを使い切ってプロセスが殺されてしまうため、1度だけ読み込んで全メッセージで共有する。
+     */
+    private val mikuIcon: Bitmap? by lazy { decodeMikuIcon() }
+
+    // 読み込み済みのうち最も古いメッセージ。ここを起点にさらに古い履歴を読む
+    private var oldestLoadedMessage: MessageEntity? = null
+
+    // 古い履歴の読み込み中かどうか。判定と更新はメインスレッドに揃える
+    private var isLoadingOlderMessages = false
 
     private val job = SupervisorJob()
     private val exceptionHandler: CoroutineExceptionHandler =
@@ -303,8 +315,9 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         val size = FontSizeConfig.getSize(getFontSizeType(this))
         setFontSize(size, binding.chatView)
 
-        userAccount = User(0, null, null)
+        userAccount = User(USER_ID_ME, null, null)
         mikuAccount = getMikuAccountFromAIModel()
+        setupHistoryPaging()
         binding.chatView.setDateSeparatorFontSize(0F)
         binding.chatView.setInputTextHint(getString(R.string.input_text_hint))
         binding.chatView.setOnClickSendButtonListener(this)
@@ -353,25 +366,129 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         Toast.makeText(this, getString(R.string.message_copied), Toast.LENGTH_SHORT).show()
     }
 
+    /**
+     * 直近の履歴を読み込んで表示する。
+     *
+     * 毎日使うアプリなので件数は増え続ける。全件を読むと起動が遅くなるだけでなく
+     * メモリも食いつぶすため、まずは[HISTORY_PAGE_SIZE]件だけ読み、
+     * それより古いものは引っ張って読み込む。
+     */
     private fun restoreMessages() {
         scope.launch {
-            val messages = appDatabase.messageDao().getAll().map {
-                return@map entityToMessage(
-                    it, when (it.userId) {
-                        0 -> userAccount
-                        else -> getMikuAccountFromId(it.userId)
-                    }
-                )
-            }
+            // 新しい順に返るので、表示する古い順に並べ替える
+            val entities = appDatabase.messageDao().getLatest(HISTORY_PAGE_SIZE).asReversed()
+            val messages = toMessages(entities)
 
             withContext(Dispatchers.Main) {
+                if (isDestroyed || isFinishing) {
+                    return@withContext
+                }
                 binding.chatView.getMessageView().init(messages)
+                oldestLoadedMessage = entities.firstOrNull()
+                // 読み切っていない場合だけ、引っ張って遡れるようにする
+                binding.chatView.setEnableSwipeRefresh(entities.size >= HISTORY_PAGE_SIZE)
             }
 
-            if (messages.isEmpty()) {
+            if (entities.isEmpty()) {
                 showGreet(userAccount.getName())
             }
         }
+    }
+
+    /**
+     * 履歴のレコードを吹き出しに変換する。
+     * 送信者ごとに[User]を作り回さず使い回して、件数分のオブジェクトを増やさない。
+     */
+    private fun toMessages(entities: List<MessageEntity>): List<Message> {
+        val users = mutableMapOf<Int, User>()
+        return entities.map { entity ->
+            val user = users.getOrPut(entity.userId) {
+                if (entity.userId == USER_ID_ME) userAccount else createMikuAccount(entity.userId)
+            }
+            entityToMessage(entity, user)
+        }
+    }
+
+    /**
+     * 上端で引っ張ったときに、表示しているより古い履歴を読み込めるようにする。
+     */
+    private fun setupHistoryPaging() {
+        // 遡れる履歴があるか分かるまでは引っ張れないようにする
+        binding.chatView.setEnableSwipeRefresh(false)
+        binding.chatView.setOnRefreshListener { loadOlderMessages() }
+    }
+
+    private fun loadOlderMessages() {
+        val oldest = oldestLoadedMessage
+        if (oldest == null || isLoadingOlderMessages) {
+            binding.chatView.setRefreshing(false)
+            return
+        }
+        isLoadingOlderMessages = true
+        scope.launch {
+            val entities = try {
+                appDatabase.messageDao()
+                    .getOlderThan(oldest.sendTime, oldest.id, HISTORY_PAGE_SIZE)
+                    .asReversed()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to load older messages", e)
+                emptyList()
+            }
+            val messages = toMessages(entities)
+
+            withContext(NonCancellable + Dispatchers.Main) {
+                // 失敗しても読み込み中のまま固まらないよう、先に解除する
+                isLoadingOlderMessages = false
+                if (isDestroyed || isFinishing) {
+                    return@withContext
+                }
+                binding.chatView.setRefreshing(false)
+                if (entities.isEmpty()) {
+                    binding.chatView.setEnableSwipeRefresh(false)
+                    Toast.makeText(
+                        this@MainActivity,
+                        R.string.message_history_no_more,
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    return@withContext
+                }
+                prependMessages(messages)
+                oldestLoadedMessage = entities.first()
+                if (entities.size < HISTORY_PAGE_SIZE) {
+                    // 読み切ったので、これ以上引っ張れないようにする
+                    binding.chatView.setEnableSwipeRefresh(false)
+                }
+            }
+        }
+    }
+
+    /**
+     * 古いメッセージを先頭に足す。
+     *
+     * ライブラリのMessageViewには先頭への追加も、再描画だけを行うAPIも無い。
+     * init()で作り直すとアダプタが差し替わってリスナと表示位置を失うため、
+     * 公開されているメッセージのリストに直接足したうえで、一時的なメッセージを
+     * 出し入れして並べ替えと再描画を行わせる。
+     */
+    private fun prependMessages(messages: List<Message>) {
+        val messageView = binding.chatView.getMessageView()
+        val topPosition = messageView.firstVisiblePosition
+        val topOffset = messageView.getChildAt(0)?.top ?: 0
+        val countBefore = messageView.count
+
+        messageView.messageList.addAll(0, messages)
+        val trigger = Message.Builder()
+            .setUser(userAccount)
+            .setText("")
+            .build()
+        messageView.setMessage(trigger)
+        messageView.remove(trigger)
+
+        // 日付の区切りも増えるので、増えた行数を数えて読んでいた場所を画面に残す
+        val added = messageView.count - countBefore
+        messageView.setSelectionFromTop(topPosition + added, topOffset)
     }
 
     private fun setupAdNetwork() {
@@ -395,33 +512,30 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
     private fun getMikuAccountFromAIModel(): User {
         return if (getAIModel(this) == (AIModelConfig.OPEN_AI.name)) {
-            val face = BitmapFactory.decodeResource(resources, R.drawable.normal)
-            val name = "${getString(R.string.miku_name)}(GPT)"
-            User(2, name, face)
+            createMikuAccount(MIKU_USER_ID_OPEN_AI)
         } else {
-            val face = BitmapFactory.decodeResource(resources, R.drawable.normal)
-            User(1, getString(R.string.miku_name), face)
+            createMikuAccount(MIKU_USER_ID_DIALOG_FLOW)
         }
     }
 
-    private fun getMikuAccountFromId(id: Int): User {
-        return when (id) {
-            1 -> {
-                val face = BitmapFactory.decodeResource(resources, R.drawable.normal)
-                User(1, getString(R.string.miku_name), face)
-            }
-
-            2 -> {
-                val face = BitmapFactory.decodeResource(resources, R.drawable.normal)
-                val name = "${getString(R.string.miku_name)}(GPT)"
-                User(2, name, face)
-            }
-
-            else -> {
-                val face = BitmapFactory.decodeResource(resources, R.drawable.normal)
-                User(1, getString(R.string.miku_name), face)
-            }
+    /**
+     * 履歴に記録されたユーザーIDからミクのアカウントを作る。
+     * アイコンは[mikuIcon]を共有するので、作られるのはUserオブジェクトだけ。
+     */
+    private fun createMikuAccount(id: Int): User {
+        return if (id == MIKU_USER_ID_OPEN_AI) {
+            User(id, "${getString(R.string.miku_name)}(GPT)", mikuIcon)
+        } else {
+            User(MIKU_USER_ID_DIALOG_FLOW, getString(R.string.miku_name), mikuIcon)
         }
+    }
+
+    private fun decodeMikuIcon(): Bitmap? {
+        return decodeSampledBitmap(
+            resources,
+            R.drawable.normal,
+            resources.getDimensionPixelSize(R.dimen.chat_icon_size)
+        )
     }
 
     private fun showGreet(userName: String?) {
@@ -920,6 +1034,9 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         }
 
         binding.chatView.getMessageView().removeAll()
+        // 遡る先が無くなるので、読み込み位置と引っ張っての読み込みを戻す
+        oldestLoadedMessage = null
+        binding.chatView.setEnableSwipeRefresh(false)
     }
 
     private fun openInAppReview() {
@@ -1536,6 +1653,14 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
     companion object {
         val TAG = MainActivity::class.java.name.toString()
+
+        // 履歴に記録される送信者のID
+        private const val USER_ID_ME = 0
+        private const val MIKU_USER_ID_DIALOG_FLOW = 1
+        private const val MIKU_USER_ID_OPEN_AI = 2
+
+        // 一度に読み込む履歴の件数
+        private const val HISTORY_PAGE_SIZE = 100
 
         private const val STATE_AVATAR_MODE = "state_avatar_mode"
         private const val STATE_AVATAR_URL = "state_avatar_url"
