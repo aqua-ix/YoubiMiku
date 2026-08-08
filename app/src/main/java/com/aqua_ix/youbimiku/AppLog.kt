@@ -28,28 +28,37 @@ object AppLog {
 
     private const val MASK = "***"
 
-    /**
-     * 伏せる対象として扱う値の最短の長さ。
-     * 空文字や1文字を[String.replace]の対象にすると、文字の間すべてに[MASK]が入って
-     * ログが壊れるため、短すぎる値（未設定のシークレットなど）は対象にしない。
-     */
+    /** 伏せる対象として扱う値の最短の長さ */
     private const val MIN_SECRET_LENGTH = 8
 
     /** 原因を辿る深さの上限。causeが循環していても止まるようにする */
     private const val MAX_CAUSE_DEPTH = 10
 
     /**
+     * シークレットに続けて伏せる範囲。URLとして続きうる文字を、区切りに見える文字の手前まで。
+     *
+     * ホストだけを伏せても足りない。翻訳APIは本文をクエリに載せるため、
+     * Ktorのタイムアウト例外は`url=<エンドポイント>?text=<ユーザーの発言>&target=ja`の形になり、
+     * エンドポイントだけを置き換えると発言がそのまま残ってしまう。
+     */
+    private const val URL_TAIL_PATTERN = """[^\s,)\]}'"]*"""
+
+    /**
      * ログとCrashlyticsから伏せる値。
      * `secrets.properties` の値は`BuildConfig`に埋め込まれ、例外のメッセージや
      * URLのログにそのまま現れるため、通信先を特定できる項目をまとめて対象にする。
      */
-    private val secrets: List<String> by lazy {
+    private val secretPatterns: List<Regex> by lazy {
         listOf(
             BuildConfig.TRANSLATE_END_POINT,
             BuildConfig.REPORT_END_POINT,
             BuildConfig.AVATAR_BASE_URL,
             BuildConfig.DIALOGFLOW_PROJECT_ID,
-        ).filter { it.length >= MIN_SECRET_LENGTH }
+        )
+            // 空文字や1文字を対象にすると文字の間すべてにMASKが入ってログが壊れるため、
+            // 短すぎる値（未設定のシークレットなど）は対象にしない
+            .filter { it.length >= MIN_SECRET_LENGTH }
+            .map { Regex(Regex.escape(it) + URL_TAIL_PATTERN) }
     }
 
     /**
@@ -151,10 +160,10 @@ object AppLog {
         return writer.toString()
     }
 
-    /** シークレットを[MASK]に置き換える */
+    /** シークレットと、それに続くパス・クエリを[MASK]に置き換える */
     private fun redact(message: String): String {
         var redacted = message
-        secrets.forEach { redacted = redacted.replace(it, MASK) }
+        secretPatterns.forEach { redacted = it.replace(redacted, MASK) }
         return apiKeyPattern.replace(redacted, MASK)
     }
 
