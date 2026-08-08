@@ -646,7 +646,9 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
                 var connection: HttpURLConnection? = null
                 return try {
-                    connection = (URL(url).openConnection() as HttpURLConnection).apply {
+                    // connect()が失敗した場合もcatchで閉じられるよう、設定より先に代入する
+                    connection = URL(url).openConnection() as HttpURLConnection
+                    connection.apply {
                         requestMethod = METHOD_GET
                         // 応答が返らないまま読み込みが終わらなくならないよう上限を設ける
                         connectTimeout = WEB_REQUEST_CONNECT_TIMEOUT_MS
@@ -691,7 +693,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                         WebResourceResponse(mimeType, charset, connection.inputStream)
                     }
                 } catch (e: Exception) {
-                    Log.e(TAG, "WebResourceResponse error: $e")
+                    Log.e(TAG, "WebResourceResponse error", e)
                     // 応答を返せない場合は接続を残さない（成功時はWebViewが
                     // ストリームを読み終えるまで閉じられないのでここでは閉じない）
                     connection?.disconnect()

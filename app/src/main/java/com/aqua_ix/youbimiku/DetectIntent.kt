@@ -35,11 +35,18 @@ class DetectIntent(
 
     private class Clients(val sessions: SessionsClient, val contexts: ContextsClient)
 
-    // 生成済みかどうかを判別する必要があるため、by lazyではなくLazyを直接持つ
     private val lazyClients = lazy { createClients() }
 
+    // 生成を始めたかどうか。生成中に終了要求が来てもクライアントを閉じ損なわないよう、
+    // 生成の完了ではなく参照された時点で立てる
+    @Volatile
+    private var isCreationRequested = false
+
     private val clients: Clients
-        get() = lazyClients.value
+        get() {
+            isCreationRequested = true
+            return lazyClients.value
+        }
 
     private fun createClients(): Clients {
         // fromStreamはストリームを閉じないので、useで確実に閉じる
@@ -103,11 +110,12 @@ class DetectIntent(
      * 完了させたいため、アプリスコープでの投げっぱなしにする。
      */
     fun shutdown() {
-        if (!lazyClients.isInitialized()) {
+        if (!isCreationRequested) {
             // 一度も送信していなければクライアントもコンテキストも存在しない
             return
         }
         Application.applicationScope.launch {
+            // 生成中の場合はlazyが完了を待つので、閉じ損なうことはない
             resetContexts()
             closeClients()
         }
