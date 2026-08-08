@@ -31,7 +31,7 @@ object RemoteConfigProvider {
 
     private const val EMPTY_JSON_ARRAY = "[]"
 
-    private val TAG = RemoteConfigProvider::class.java.name.toString()
+    private val TAG = RemoteConfigProvider::class.java.simpleName
 
     private val remoteConfig: FirebaseRemoteConfig by lazy { Firebase.remoteConfig }
 
