@@ -41,6 +41,7 @@ class AdNetworkController : AdController {
         activity: AppCompatActivity,
         adNetwork: String,
         actionBarSize: Int,
+        isResumed: Boolean,
         onBannerHeightChanged: (Int) -> Unit
     ) {
         when (adNetwork) {
@@ -59,6 +60,12 @@ class AdNetworkController : AdController {
             }
         }
         this.adNetwork = adNetwork
+
+        // 初期化がonResumeより後になる場合があるため、表示中ならSDKに再開を伝える。
+        // iMobileはinitImobileBanner()内でstart()済みなので、ここではIronSourceだけを対象にする。
+        if (isResumed && adNetwork == RemoteConfigKey.AdNetwork.IRONSOURCE) {
+            onResume(activity)
+        }
     }
 
     private fun initImobileBanner(

@@ -11,6 +11,7 @@ class NoOpAdController : AdController {
         activity: AppCompatActivity,
         adNetwork: String,
         actionBarSize: Int,
+        isResumed: Boolean,
         onBannerHeightChanged: (Int) -> Unit
     ) {
         Log.d(TAG, "Ad network is disabled by flavor.")

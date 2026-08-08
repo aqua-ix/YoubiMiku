@@ -11,14 +11,19 @@ interface AdController {
     /**
      * 広告ネットワークを初期化する。
      *
+     * RemoteConfigの取得完了を待ってから呼ばれるため、[activity]がすでにonResume済みのことがある。
+     * その場合はSDKに再開を伝える必要があるので、[isResumed]で状態を渡す。
+     *
      * @param adNetwork RemoteConfigの`ad_network`の値
      * @param actionBarSize バナーをアクションバーの下に表示するために上マージンへ加算する高さ
+     * @param isResumed 呼び出し時点で[activity]が表示中（onResume済み・onPause前）かどうか
      * @param onBannerHeightChanged バナーの表示状態が変わったときに、確保すべき高さを通知する
      */
     fun setup(
         activity: AppCompatActivity,
         adNetwork: String,
         actionBarSize: Int,
+        isResumed: Boolean,
         onBannerHeightChanged: (Int) -> Unit
     )
 
