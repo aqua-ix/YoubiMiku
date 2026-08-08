@@ -36,6 +36,7 @@ import com.aallam.openai.api.chat.ChatCompletionRequest
 import com.aallam.openai.api.chat.ChatMessage
 import com.aallam.openai.api.chat.ChatRole
 import com.aallam.openai.api.core.FinishReason
+import com.aallam.openai.api.exception.OpenAIIOException
 import com.aallam.openai.api.model.ModelId
 import com.aallam.openai.client.OpenAI
 import com.aallam.openai.client.OpenAIConfig
@@ -69,19 +70,22 @@ import com.aqua_ix.youbimiku.database.messageToEntity
 import com.aqua_ix.youbimiku.databinding.ActivityMainBinding
 import com.github.bassaer.chatmessageview.model.Message
 import com.google.android.play.core.review.ReviewManagerFactory
+import com.google.api.gax.rpc.UnavailableException
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 
@@ -92,7 +96,9 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
     private lateinit var binding: ActivityMainBinding
     private lateinit var detectIntent: DetectIntent
-    private lateinit var openAI: OpenAI
+
+    // 初期化はRemoteConfigとFirebaseの取得後になるため、未初期化を判別できるようにnullableで持つ
+    private var openAI: OpenAI? = null
     private lateinit var firebaseDatabase: FirebaseDatabase
     private lateinit var appDatabase: AppDatabase
     private lateinit var navMenu: Menu
@@ -123,10 +129,18 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     private val job = SupervisorJob()
     private val exceptionHandler: CoroutineExceptionHandler =
         CoroutineExceptionHandler { _, throwable ->
-            Log.e(TAG, throwable.message.toString())
+            // AI応答の失敗はrunAITaskで受け止めて表示するので、ここに来るのは
+            // 履歴の保存や報告など送信とは無関係な処理の失敗。応答待ちの状態を
+            // 触ると実行中のリクエストの状態を壊すため、ログだけに留める
+            Log.e(TAG, "Unhandled error", throwable)
         }
     private val scope = CoroutineScope(Dispatchers.Default + job + exceptionHandler)
-    private var openAITaskJob: Job? = null
+
+    // 応答待ちかどうか。判定と更新をメインスレッドに揃えて、連続送信で競合しないようにする
+    private var isSending = false
+
+    // 応答待ちを示すだけの吹き出し。履歴には残さないので消すために参照を持つ
+    private var typingMessage: Message? = null
 
     private var actionBarSize = 0
 
@@ -247,12 +261,10 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     }
 
     private fun onOpenAIError() {
-        val error = Message.Builder()
-            .setUser(mikuAccount)
-            .setRight(false)
-            .setText(getString(R.string.message_error_openai))
-            .build()
-        binding.chatView.receive(error)
+        openAI = null
+        // 応答待ちの状態はここでは触らない。実行中のリクエストはrunAITaskのfinallyが
+        // 必ず解除するので、割り込んで解除するとあとから届いた応答が新しい会話に混ざる
+        showErrorMessage(getString(R.string.message_error_openai))
         mikuAccount.setName(getString(R.string.miku_name))
         setAIModel(this, AIModelConfig.DIALOG_FLOW)
         if (::navMenu.isInitialized) {
@@ -284,23 +296,24 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     }
 
     private fun showActionSheet(message: Message) {
-        val options = if (message.user.getId() == userAccount.getId()) {
-            arrayOf(getString(R.string.copy_message))
+        val isUserMessage = message.user.getId() == userAccount.getId()
+        val options = if (isUserMessage) {
+            arrayOf(getString(R.string.copy_message), getString(R.string.resend_message))
         } else {
             arrayOf(getString(R.string.copy_message), getString(R.string.report_message))
         }
         AlertDialog.Builder(this)
             .setItems(options) { _, which ->
-                when (which) {
-                    0 -> message.text?.let { copyMessageToClipboard(it) }
-                    1 -> message.text?.let {
-                        ReportUtil.showReportReasonDialog(
-                            this,
-                            it,
-                            userAccount.getName() ?: "",
-                            scope
-                        )
-                    }
+                val text = message.text ?: return@setItems
+                when {
+                    which == 0 -> copyMessageToClipboard(text)
+                    isUserMessage -> resendMessage(text)
+                    else -> ReportUtil.showReportReasonDialog(
+                        this,
+                        text,
+                        userAccount.getName() ?: "",
+                        scope
+                    )
                 }
             }
             .show()
@@ -991,22 +1004,65 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
 
     override fun onClick(v: View) {
-        if (binding.chatView.inputText.isEmpty()) {
+        val text = binding.chatView.inputText
+        if (text.isBlank()) {
+            // 空白だけの入力はリクエストにならないので、吹き出しも履歴も増やさない
             return
         }
+        if (!canSendRequest()) {
+            // 送信できない場合は入力内容を消さず、打ち直さずに再送信できるようにする
+            return
+        }
+
         val send = Message.Builder()
             .setUser(userAccount)
             .setRight(true)
-            .setText(binding.chatView.inputText)
+            .setText(text)
             .hideIcon(true)
             .build()
-        sendRequest(binding.chatView.inputText)
         binding.chatView.send(send)
         binding.chatView.inputText = ""
 
         scope.launch {
             appDatabase.messageDao().insert(messageToEntity(send))
         }
+
+        // 応答待ちの吹き出しが送信した吹き出しより先に並ばないよう、表示のあとに送る
+        sendRequest(text)
+
+        // 送信したメッセージ数を数えるのはこのタイミングだけ。
+        // 送信されなかったメッセージや再送信を数えないようにする
+        showInterstitialIfNeeded()
+        showSupportDialogIfNeeded()
+    }
+
+    /**
+     * 送信できる状態かどうかを返す。送信できない場合はその理由を画面に表示する。
+     */
+    private fun canSendRequest(): Boolean {
+        if (isSending) {
+            // 応答待ちの間に送ると、応答が来ないメッセージが履歴に残ってしまう
+            Log.w(TAG, "The previous request is still running.")
+            Toast.makeText(this, R.string.message_waiting_response, Toast.LENGTH_SHORT).show()
+            return false
+        }
+        if (getAIModel(this) == AIModelConfig.OPEN_AI.name && openAI == null) {
+            // RemoteConfigとFirebaseからの初期化がまだ終わっていない
+            Log.w(TAG, "OpenAI is not initialized yet.")
+            Toast.makeText(this, R.string.message_preparing, Toast.LENGTH_SHORT).show()
+            return false
+        }
+        return true
+    }
+
+    /**
+     * 応答が返らなかったメッセージを、履歴に増やさずもう一度送り直す。
+     */
+    private fun resendMessage(text: String) {
+        if (!canSendRequest()) {
+            return
+        }
+        sendRequest(text)
     }
 
     private fun sendRequest(text: String) {
@@ -1016,25 +1072,125 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             return
         }
 
-        when (getAIModel(this)) {
-            AIModelConfig.OPEN_AI.name ->
-                scope.launch {
-                    if (openAITaskJob?.isActive == true) {
-                        return@launch
-                    }
-                    openAITaskJob = launch {
-                        openAITask(text)
-                    }
+        // 応答待ちの判定と開始をメインスレッドで済ませてから起動する。
+        // コルーチンの中で判定すると、連続タップでどちらもすり抜けることがある
+        val aiModel = getAIModel(this)
+        setSendingState(true)
+        scope.launch {
+            runAITask {
+                when (aiModel) {
+                    AIModelConfig.OPEN_AI.name -> openAITask(text)
+                    else -> dialogFlowTask(text)
                 }
-
-            else ->
-                scope.launch {
-                    dialogFlowTask(text)
-                }
+            }
         }
+    }
 
-        showInterstitialIfNeeded()
-        showSupportDialogIfNeeded()
+    /**
+     * 応答待ちかどうかを切り替える。メインスレッドからのみ呼ぶ。
+     */
+    private fun setSendingState(isSending: Boolean) {
+        this.isSending = isSending
+        binding.chatView.setEnableSendButton(!isSending)
+        if (isSending) {
+            showTypingIndicator()
+        } else {
+            hideTypingIndicator()
+        }
+    }
+
+    /**
+     * ミクが応答を考えていることを示す吹き出しを表示する。
+     * 応答待ちの間だけのものなので履歴（DB）には保存しない。
+     */
+    private fun showTypingIndicator() {
+        if (typingMessage != null) {
+            return
+        }
+        val typing = Message.Builder()
+            .setUser(mikuAccount)
+            .setRight(false)
+            .setText(getString(R.string.message_typing))
+            .build()
+        typingMessage = typing
+        binding.chatView.receive(typing)
+    }
+
+    private fun hideTypingIndicator() {
+        val typing = typingMessage ?: return
+        typingMessage = null
+        binding.chatView.getMessageView().remove(typing)
+    }
+
+    /**
+     * AI応答の取得を実行し、失敗した場合はエラーを会話上に表示する。
+     * ここで受け止めないとCoroutineExceptionHandlerでログに落ちるだけになり、
+     * ユーザーには応答が来ないことしか分からない。
+     */
+    private suspend fun runAITask(task: suspend () -> Unit) {
+        try {
+            task()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.e(TAG, "AI request error", e)
+            withContext(Dispatchers.Main) {
+                if (isDestroyed || isFinishing) {
+                    return@withContext
+                }
+                // 応答待ちの吹き出しを消してからエラーを並べる。finallyでも解除するが、
+                // 表示のたびに待ち状態が残らないようここで済ませる
+                setSendingState(false)
+                showErrorMessage(getErrorMessage(e))
+            }
+        } finally {
+            // 失敗しても応答待ちのまま固まらないように必ず解除する。
+            // scopeのキャンセル後でも実行できるようNonCancellableにする
+            withContext(NonCancellable + Dispatchers.Main) {
+                if (isDestroyed || isFinishing) {
+                    return@withContext
+                }
+                setSendingState(false)
+            }
+        }
+    }
+
+    /**
+     * ミク側の吹き出しとしてエラーを表示する。
+     * 再起動後には意味を持たないため、履歴（DB）には保存しない。
+     *
+     * 応答待ちの吹き出しはsetSendingStateだけが出し入れする。ここで消すと、
+     * リクエストと無関係なエラー（onOpenAIErrorなど）でも消えてしまい、
+     * 応答待ちなのに何も起きていないように見える。
+     */
+    private fun showErrorMessage(text: String) {
+        if (isDestroyed || isFinishing) {
+            // Firebaseのリスナは破棄後にも呼ばれ得るので、ここでまとめて弾く
+            return
+        }
+        val error = Message.Builder()
+            .setUser(mikuAccount)
+            .setRight(false)
+            .setText(text)
+            .build()
+        binding.chatView.receive(error)
+    }
+
+    /**
+     * 例外の種別に応じたエラー文言を返す。
+     * 通信エラーはライブラリ独自の例外に包まれるため、causeを辿って判定する。
+     */
+    private fun getErrorMessage(throwable: Throwable): String {
+        val causes = generateSequence(throwable) { if (it.cause === it) null else it.cause }
+            .take(MAX_CAUSE_DEPTH)
+        val isNetworkError = causes.any {
+            it is IOException || it is OpenAIIOException || it is UnavailableException
+        }
+        return if (isNetworkError) {
+            getString(R.string.message_error)
+        } else {
+            getString(R.string.message_error_ai_response)
+        }
     }
 
     /**
@@ -1085,18 +1241,57 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     private suspend fun dialogFlowTask(text: String) {
         val response = detectIntent.send(text)
         Log.d(TAG, "response: $response")
+        receiveMessage(response)
+    }
+
+    /**
+     * ミクの応答を表示して履歴に保存する。
+     * 応答が空の場合は黙って捨てず、状態が伝わるようにエラーとして扱う。
+     * 改行や空白だけの応答も吹き出しが空に見えるだけなので空として扱う。
+     */
+    private suspend fun receiveMessage(text: String?) {
+        if (text.isNullOrBlank()) {
+            Log.e(TAG, "Response is empty.")
+            withContext(Dispatchers.Main) {
+                if (isDestroyed || isFinishing) {
+                    return@withContext
+                }
+                showErrorMessage(getString(R.string.message_error_empty_response))
+            }
+            return
+        }
+
         val receivedMessage = Message.Builder()
             .setUser(mikuAccount)
             .setRight(false)
-            .setText(response)
+            .setText(text)
             .build()
         withContext(Dispatchers.Main) {
+            if (isDestroyed || isFinishing) {
+                return@withContext
+            }
+            // 応答の吹き出しの下に応答待ちの吹き出しが残らないよう先に消す
+            hideTypingIndicator()
             binding.chatView.receive(receivedMessage)
         }
+        // 表示できなくても会話は成立しているので履歴には残す
         appDatabase.messageDao().insert(messageToEntity(receivedMessage))
     }
 
     private suspend fun openAITask(text: String) {
+        val client = openAI
+        if (client == null) {
+            // 送信前にも確認しているが、初期化が外れた場合にも黙って終わらないようにする
+            Log.e(TAG, "OpenAI is not initialized.")
+            withContext(Dispatchers.Main) {
+                if (isDestroyed || isFinishing) {
+                    return@withContext
+                }
+                showErrorMessage(getString(R.string.message_preparing))
+            }
+            return
+        }
+
         val maxLength = RemoteConfigProvider.maxUserTextLength
         val sendText = if (text.length <= maxLength) text else text.substring(0, maxLength)
         Log.d(TAG, "sendText: $sendText")
@@ -1121,32 +1316,22 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             ),
             maxTokens = maxTokens
         )
-        val completion = openAI.chatCompletion(chatCompletionRequest)
+        val completion = client.chatCompletion(chatCompletionRequest)
         Log.d(TAG, "completion: $completion")
         val choice = completion.choices.first()
-        choice.message.content.let {
-            val response = it?.replace("^$|\n", "")
-            Log.d(TAG, "response: $response")
-            val result = if (choice.finishReason == FinishReason.Length) {
-                "$response…"
-            } else {
-                response
-            }
-            Log.d(TAG, "result: $result")
-            if (result.isNullOrEmpty()) {
-                return
-            }
-            openAIPreviousResponse = result
-            val receivedMessage = Message.Builder()
-                .setUser(mikuAccount)
-                .setRight(false)
-                .setText(result)
-                .build()
-            withContext(Dispatchers.Main) {
-                binding.chatView.receive(receivedMessage)
-            }
-            appDatabase.messageDao().insert(messageToEntity(receivedMessage))
+        val response = choice.message.content
+        Log.d(TAG, "response: $response")
+        val result = when {
+            // 応答が空のまま末尾に記号を足すと空でなくなってしまうので先に判定する
+            response.isNullOrBlank() -> null
+            choice.finishReason == FinishReason.Length -> "$response…"
+            else -> response
         }
+        Log.d(TAG, "result: $result")
+        if (result != null) {
+            openAIPreviousResponse = result
+        }
+        receiveMessage(result)
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -1199,5 +1384,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
         private const val STATE_AVATAR_MODE = "state_avatar_mode"
         private const val STATE_AVATAR_URL = "state_avatar_url"
+
+        // 例外の原因を辿る深さの上限。cause が循環していても止まるようにする
+        private const val MAX_CAUSE_DEPTH = 10
     }
 }
