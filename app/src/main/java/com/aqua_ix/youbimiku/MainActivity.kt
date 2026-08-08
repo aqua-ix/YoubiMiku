@@ -1541,8 +1541,11 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
      * ユーザーには応答が来ないことしか分からない。
      */
     private suspend fun runAITask(task: suspend () -> Unit) {
-        // 前回の送信で届いた文字数を持ち越さない
+        // 前回の送信で届いた文字数を持ち越さない。クラッシュレポート側の値も一緒に戻す
+        // （失敗したときだけ書き換えると、そのあとに起きた無関係なクラッシュに
+        // 古い値が付いてしまう）
         streamedResponseChars = 0
+        AppLog.setCustomKey(CrashlyticsKey.STREAMED_CHARS, 0)
         try {
             task()
         } catch (e: CancellationException) {

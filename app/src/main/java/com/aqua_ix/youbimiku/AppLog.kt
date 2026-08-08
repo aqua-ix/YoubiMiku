@@ -26,22 +26,8 @@ import java.io.StringWriter
  */
 object AppLog {
 
-    private const val MASK = "***"
-
-    /** 伏せる対象として扱う値の最短の長さ */
-    private const val MIN_SECRET_LENGTH = 8
-
     /** 原因を辿る深さの上限。causeが循環していても止まるようにする */
     private const val MAX_CAUSE_DEPTH = 10
-
-    /**
-     * シークレットに続けて伏せる範囲。URLとして続きうる文字を、区切りに見える文字の手前まで。
-     *
-     * ホストだけを伏せても足りない。翻訳APIは本文をクエリに載せるため、
-     * Ktorのタイムアウト例外は`url=<エンドポイント>?text=<ユーザーの発言>&target=ja`の形になり、
-     * エンドポイントだけを置き換えると発言がそのまま残ってしまう。
-     */
-    private const val URL_TAIL_PATTERN = """[^\s,)\]}'"]*"""
 
     /**
      * ログとCrashlyticsから伏せる値。
@@ -49,23 +35,15 @@ object AppLog {
      * URLのログにそのまま現れるため、通信先を特定できる項目をまとめて対象にする。
      */
     private val secretPatterns: List<Regex> by lazy {
-        listOf(
-            BuildConfig.TRANSLATE_END_POINT,
-            BuildConfig.REPORT_END_POINT,
-            BuildConfig.AVATAR_BASE_URL,
-            BuildConfig.DIALOGFLOW_PROJECT_ID,
+        buildSecretPatterns(
+            listOf(
+                BuildConfig.TRANSLATE_END_POINT,
+                BuildConfig.REPORT_END_POINT,
+                BuildConfig.AVATAR_BASE_URL,
+                BuildConfig.DIALOGFLOW_PROJECT_ID,
+            )
         )
-            // 空文字や1文字を対象にすると文字の間すべてにMASKが入ってログが壊れるため、
-            // 短すぎる値（未設定のシークレットなど）は対象にしない
-            .filter { it.length >= MIN_SECRET_LENGTH }
-            .map { Regex(Regex.escape(it) + URL_TAIL_PATTERN) }
     }
-
-    /**
-     * OpenAIのAPIキー。Firebase経由で受け取るため`BuildConfig`には無く固定値で持てないが、
-     * 万一ログや例外に現れても値が残らないようにする。
-     */
-    private val apiKeyPattern = Regex("sk-[A-Za-z0-9_-]{8,}")
 
     /**
      * デバッグビルドでのみ出力する。リリースビルドでは何もしない。
@@ -160,12 +138,8 @@ object AppLog {
         return writer.toString()
     }
 
-    /** シークレットと、それに続くパス・クエリを[MASK]に置き換える */
-    private fun redact(message: String): String {
-        var redacted = message
-        secretPatterns.forEach { redacted = it.replace(redacted, MASK) }
-        return apiKeyPattern.replace(redacted, MASK)
-    }
+    /** シークレットと、それに続くパス・クエリを伏せる */
+    private fun redact(message: String): String = redactSecrets(message, secretPatterns)
 
     /**
      * Crashlyticsに送れる形の例外を返す。
@@ -177,10 +151,18 @@ object AppLog {
     private fun sanitize(throwable: Throwable): Throwable =
         if (containsSecret(throwable)) redactedCopy(throwable, 0) else throwable
 
+    /**
+     * 例外のどこかにシークレットが含まれているかを返す。
+     *
+     * causeの連鎖だけでなくsuppressedも見る。Crashlyticsが送るのはcauseの連鎖だけだが、
+     * 判定を送信側の実装に依存させず、「例外のどこかにあれば伏せる」で揃えておく。
+     */
     private fun containsSecret(throwable: Throwable): Boolean =
         causesOf(throwable).any { cause ->
-            val message = cause.message
-            message != null && redact(message) != message
+            (sequenceOf(cause) + cause.suppressed.asSequence()).any {
+                val message = it.message
+                message != null && redact(message) != message
+            }
         }
 
     private fun causesOf(throwable: Throwable): Sequence<Throwable> =
@@ -204,6 +186,48 @@ object AppLog {
 
 /** シークレットを取り除いた例外。元の型はメッセージの先頭に残る */
 class RedactedException(message: String, cause: Throwable?) : Exception(message, cause)
+
+/** 伏せた値の代わりに出す文字列 */
+internal const val MASK = "***"
+
+/**
+ * 伏せる対象として扱う値の最短の長さ。
+ * 空文字や1文字から作ったパターンはあらゆる位置にあたり、行全体が[MASK]になってしまうため、
+ * 短すぎる値（未設定のシークレットなど）は対象にしない。
+ */
+private const val MIN_SECRET_LENGTH = 8
+
+/**
+ * シークレットに続けて伏せる範囲。URLとして続きうる文字を、区切りに見える文字の手前まで。
+ *
+ * ホストだけを伏せても足りない。翻訳APIは本文をクエリに載せるため、
+ * Ktorのタイムアウト例外は`url=<エンドポイント>?text=<ユーザーの発言>&target=ja`の形になり、
+ * エンドポイントだけを置き換えるとユーザーの発言がそのまま残ってしまう。
+ * 区切りの手前で止めることで、例外の残り（タイムアウト値など）は読める形で残す。
+ */
+private const val URL_TAIL_PATTERN = """[^\s,)\]}'"]*"""
+
+/**
+ * OpenAIのAPIキー。Firebase経由で受け取るため`BuildConfig`には無く固定値で持てないが、
+ * 万一ログや例外に現れても値が残らないようにする。
+ */
+private val API_KEY_PATTERN = Regex("sk-[A-Za-z0-9_-]{8,}")
+
+/**
+ * 伏せる値から、続くパス・クエリまで含めて拾うパターンを作る。
+ * 短すぎる値は[MIN_SECRET_LENGTH]で落とす。
+ */
+internal fun buildSecretPatterns(secrets: List<String>): List<Regex> =
+    secrets
+        .filter { it.length >= MIN_SECRET_LENGTH }
+        .map { Regex(Regex.escape(it) + URL_TAIL_PATTERN) }
+
+/** [patterns]に一致する箇所とAPIキーを[MASK]に置き換える */
+internal fun redactSecrets(message: String, patterns: List<Regex>): String {
+    var redacted = message
+    patterns.forEach { redacted = it.replace(redacted, MASK) }
+    return API_KEY_PATTERN.replace(redacted, MASK)
+}
 
 /** クラッシュレポートに添えるキー */
 object CrashlyticsKey {
