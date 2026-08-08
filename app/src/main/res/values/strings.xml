@@ -13,6 +13,8 @@
     <string name="message_error_ai_response">Sorry, I could not answer. Please wait a moment and talk to me again.</string>
     <string name="message_error_empty_response">Sorry, I could not think of anything to say. Please talk to me again.</string>
     <string name="message_preparing">Getting ready. Please wait a moment before sending.</string>
+    <string name="message_waiting_response">I\'m thinking about my reply. Please wait a moment.</string>
+    <string name="message_typing">Thinking…</string>
 
     <string name="setting_user_name">Your Name</string>
     <string name="setting_name_title">How can I call you?</string>

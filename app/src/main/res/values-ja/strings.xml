@@ -13,6 +13,8 @@
     <string name="message_error_ai_response">ごめんなさい、うまく答えられませんでした。少し待ってから、もう一度話しかけてください。</string>
     <string name="message_error_empty_response">ごめんなさい、返す言葉が思いつきませんでした。もう一度話しかけてください。</string>
     <string name="message_preparing">準備中です。少し待ってから送信してください。</string>
+    <string name="message_waiting_response">返事を考えています。少し待ってください。</string>
+    <string name="message_typing">考えています…</string>
 
     <string name="setting_dialog_accept">決定</string>
     <string name="setting_dialog_cancel">キャンセル</string>

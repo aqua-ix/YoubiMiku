@@ -79,7 +79,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
@@ -133,14 +133,20 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             // ハンドリング漏れがあっても失敗が伝わるようにする。ログだけだと
             // ユーザーには「ミクが黙ったまま」にしか見えない
             runOnUiThread {
-                if (isDestroyed || isFinishing) {
+                if (isDestroyed || isFinishing || !isSending) {
                     return@runOnUiThread
                 }
+                setSendingState(false)
                 showErrorMessage(getErrorMessage(throwable))
             }
         }
     private val scope = CoroutineScope(Dispatchers.Default + job + exceptionHandler)
-    private var openAITaskJob: Job? = null
+
+    // 応答待ちかどうか。判定と更新をメインスレッドに揃えて、連続送信で競合しないようにする
+    private var isSending = false
+
+    // 応答待ちを示すだけの吹き出し。履歴には残さないので消すために参照を持つ
+    private var typingMessage: Message? = null
 
     private var actionBarSize = 0
 
@@ -1017,13 +1023,15 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             .setText(text)
             .hideIcon(true)
             .build()
-        sendRequest(text)
         binding.chatView.send(send)
         binding.chatView.inputText = ""
 
         scope.launch {
             appDatabase.messageDao().insert(messageToEntity(send))
         }
+
+        // 応答待ちの吹き出しが送信した吹き出しより先に並ばないよう、表示のあとに送る
+        sendRequest(text)
 
         // 送信したメッセージ数を数えるのはこのタイミングだけ。
         // 送信されなかったメッセージや再送信を数えないようにする
@@ -1035,6 +1043,12 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
      * 送信できる状態かどうかを返す。送信できない場合はその理由を画面に表示する。
      */
     private fun canSendRequest(): Boolean {
+        if (isSending) {
+            // 応答待ちの間に送ると、応答が来ないメッセージが履歴に残ってしまう
+            Log.w(TAG, "The previous request is still running.")
+            Toast.makeText(this, R.string.message_waiting_response, Toast.LENGTH_SHORT).show()
+            return false
+        }
         if (getAIModel(this) == AIModelConfig.OPEN_AI.name && openAI == null) {
             // RemoteConfigとFirebaseからの初期化がまだ終わっていない
             Log.w(TAG, "OpenAI is not initialized yet.")
@@ -1061,22 +1075,54 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             return
         }
 
-        when (getAIModel(this)) {
-            AIModelConfig.OPEN_AI.name ->
-                scope.launch {
-                    if (openAITaskJob?.isActive == true) {
-                        return@launch
-                    }
-                    openAITaskJob = launch {
-                        runAITask { openAITask(text) }
-                    }
+        // 応答待ちの判定と開始をメインスレッドで済ませてから起動する。
+        // コルーチンの中で判定すると、連続タップでどちらもすり抜けることがある
+        val aiModel = getAIModel(this)
+        setSendingState(true)
+        scope.launch {
+            runAITask {
+                when (aiModel) {
+                    AIModelConfig.OPEN_AI.name -> openAITask(text)
+                    else -> dialogFlowTask(text)
                 }
-
-            else ->
-                scope.launch {
-                    runAITask { dialogFlowTask(text) }
-                }
+            }
         }
+    }
+
+    /**
+     * 応答待ちかどうかを切り替える。メインスレッドからのみ呼ぶ。
+     */
+    private fun setSendingState(isSending: Boolean) {
+        this.isSending = isSending
+        binding.chatView.setEnableSendButton(!isSending)
+        if (isSending) {
+            showTypingIndicator()
+        } else {
+            hideTypingIndicator()
+        }
+    }
+
+    /**
+     * ミクが応答を考えていることを示す吹き出しを表示する。
+     * 応答待ちの間だけのものなので履歴（DB）には保存しない。
+     */
+    private fun showTypingIndicator() {
+        if (typingMessage != null) {
+            return
+        }
+        val typing = Message.Builder()
+            .setUser(mikuAccount)
+            .setRight(false)
+            .setText(getString(R.string.message_typing))
+            .build()
+        typingMessage = typing
+        binding.chatView.receive(typing)
+    }
+
+    private fun hideTypingIndicator() {
+        val typing = typingMessage ?: return
+        typingMessage = null
+        binding.chatView.getMessageView().remove(typing)
     }
 
     /**
@@ -1097,6 +1143,15 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                 }
                 showErrorMessage(getErrorMessage(e))
             }
+        } finally {
+            // 失敗しても応答待ちのまま固まらないように必ず解除する。
+            // scopeのキャンセル後でも実行できるようNonCancellableにする
+            withContext(NonCancellable + Dispatchers.Main) {
+                if (isDestroyed || isFinishing) {
+                    return@withContext
+                }
+                setSendingState(false)
+            }
         }
     }
 
@@ -1105,6 +1160,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
      * 再起動後には意味を持たないため、履歴（DB）には保存しない。
      */
     private fun showErrorMessage(text: String) {
+        // 応答待ちの吹き出しを残したままエラーを並べないように先に消す
+        hideTypingIndicator()
         val error = Message.Builder()
             .setUser(mikuAccount)
             .setRight(false)
@@ -1203,6 +1260,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             .setText(text)
             .build()
         withContext(Dispatchers.Main) {
+            hideTypingIndicator()
             binding.chatView.receive(receivedMessage)
         }
         appDatabase.messageDao().insert(messageToEntity(receivedMessage))
