@@ -86,6 +86,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.ByteArrayInputStream
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
@@ -491,7 +492,22 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
      */
     private fun createOpenAI(apiKey: String, orgId: String?) {
         scope.launch {
-            val client = OpenAI(OpenAIConfig(token = apiKey, organization = orgId))
+            val client = try {
+                OpenAI(OpenAIConfig(token = apiKey, organization = orgId))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // ログだけに留めると準備中のまま送信できなくなるので、
+                // apiKeyが無い場合と同じようにエラーとして扱う
+                Log.e(TAG, "Failed to create the OpenAI client.", e)
+                withContext(Dispatchers.Main) {
+                    if (isDestroyed || isFinishing) {
+                        return@withContext
+                    }
+                    onOpenAIError()
+                }
+                return@launch
+            }
             withContext(Dispatchers.Main) {
                 if (isDestroyed || isFinishing) {
                     return@withContext
@@ -655,11 +671,25 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                     // Content-Typeは "text/html; charset=utf-8" の形で返るため、
                     // MIMEタイプと文字コードに分けて渡す（そのまま渡すと種別が判別されない）
                     val contentType = connection.contentType
-                    WebResourceResponse(
-                        parseMimeType(contentType),
-                        parseCharset(contentType) ?: DEFAULT_CHARSET,
-                        connection.inputStream
-                    )
+                    val mimeType = parseMimeType(contentType)
+                    val charset = parseCharset(contentType) ?: DEFAULT_CHARSET
+                    val statusCode = connection.responseCode
+                    if (statusCode >= HttpURLConnection.HTTP_BAD_REQUEST) {
+                        // エラー応答ではinputStreamが例外になる。認証ヘッダを付けずに
+                        // WebViewへ取り直させても同じく失敗するので、ステータスコードと
+                        // 本文をそのまま返して結果を伝える
+                        WebResourceResponse(
+                            mimeType,
+                            charset,
+                            statusCode,
+                            connection.responseMessage?.takeIf { it.isNotBlank() }
+                                ?: DEFAULT_REASON_PHRASE,
+                            emptyMap(),
+                            connection.errorStream ?: ByteArrayInputStream(ByteArray(0))
+                        )
+                    } else {
+                        WebResourceResponse(mimeType, charset, connection.inputStream)
+                    }
                 } catch (e: Exception) {
                     Log.e(TAG, "WebResourceResponse error: $e")
                     // 応答を返せない場合は接続を残さない（成功時はWebViewが
@@ -1498,6 +1528,9 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         private const val WEB_REQUEST_READ_TIMEOUT_MS = 30_000
 
         private const val METHOD_GET = "GET"
+
+        // WebResourceResponseは空のreason phraseを受け付けないため、応答に無い場合に使う
+        private const val DEFAULT_REASON_PHRASE = "Error"
         private const val DEFAULT_CHARSET = "utf-8"
         private const val HEADER_CF_CLIENT_ID = "CF-Access-Client-Id"
         private const val HEADER_CF_CLIENT_SECRET = "CF-Access-Client-Secret"

@@ -42,9 +42,10 @@ class DetectIntent(
         get() = lazyClients.value
 
     private fun createClients(): Clients {
-        val credentials = GoogleCredentials
-            .fromStream(context.resources.openRawResource(R.raw.dialogflow_secret))
-            .createScoped(SCOPE)
+        // fromStreamはストリームを閉じないので、useで確実に閉じる
+        val credentials = context.resources.openRawResource(R.raw.dialogflow_secret).use {
+            GoogleCredentials.fromStream(it).createScoped(SCOPE)
+        }
         return Clients(createSessions(credentials), createContexts(credentials))
     }
 
