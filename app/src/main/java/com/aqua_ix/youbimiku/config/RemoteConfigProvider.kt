@@ -35,7 +35,9 @@ object RemoteConfigProvider {
 
     private val remoteConfig: FirebaseRemoteConfig by lazy { Firebase.remoteConfig }
 
-    // デフォルト値が適用され、各getterが意味のある値を返せる状態かどうか
+    // デフォルト値が適用され、各getterが意味のある値を返せる状態かどうか。
+    // 書き込みはメインスレッド、読み出しはコルーチンからも行われるため@Volatileにする
+    @Volatile
     private var isDefaultsApplied = false
 
     /**
