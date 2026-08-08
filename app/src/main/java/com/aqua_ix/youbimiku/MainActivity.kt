@@ -641,9 +641,10 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                     headers.forEach { connection.setRequestProperty(it.key, it.value) }
                     connection.connect()
 
+                    // レスポンスヘッダーには Cloudflare Access の認証トークンが含まれるため出力しない
                     Log.d(
                         TAG,
-                        "WebResourceResponse: ${connection.contentType}, ${connection.contentEncoding}, ${connection.inputStream}, ${connection.headerFields}"
+                        "WebResourceResponse: ${connection.responseCode}, ${connection.contentType}, ${connection.contentEncoding}"
                     )
 
                     WebResourceResponse(
