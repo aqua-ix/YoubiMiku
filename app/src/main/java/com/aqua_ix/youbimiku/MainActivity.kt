@@ -1347,7 +1347,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
 
     override fun onClick(v: View) {
-        val text = binding.chatView.inputText
+        // 表示・保存・送信で同じ文字列を使うため、送信の入口で切り詰める
+        val text = truncateUserText(binding.chatView.inputText)
         if (text.isBlank()) {
             // 空白だけの入力はリクエストにならないので、吹き出しも履歴も増やさない
             return
@@ -1405,7 +1406,22 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         if (!canSendRequest()) {
             return
         }
-        sendRequest(text)
+        // 履歴には上限より長い発言が残っている場合がある（上限を下げた場合や、
+        // 入力欄で上限を示す前に送られたもの）ので、送るときに切り詰める
+        sendRequest(truncateUserText(text))
+    }
+
+    /**
+     * 送信する本文を上限（max_user_text_length）で切り詰める。
+     *
+     * 送信の入口（[onClick]・[resendMessage]）で1度だけ行い、
+     * 吹き出し・履歴・リクエストで同じ文字列になるようにする。
+     * 保存された本文と送る本文がずれると、同じ発言が文脈と今回の発言の
+     * 両方に入って二重に送られてしまう。
+     */
+    private fun truncateUserText(text: String): String {
+        val maxLength = RemoteConfigProvider.maxUserTextLength
+        return if (text.length <= maxLength) text else text.substring(0, maxLength)
     }
 
     private fun sendRequest(text: String) {
@@ -1635,14 +1651,13 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             return
         }
 
-        val maxLength = RemoteConfigProvider.maxUserTextLength
-        val sendText = if (text.length <= maxLength) text else text.substring(0, maxLength)
-        Log.d(TAG, "sendText: $sendText")
+        // 上限での切り詰めは送信の入口（truncateUserText）で済んでいる
+        Log.d(TAG, "sendText: $text")
 
         val chatCompletionRequest = ChatCompletionRequest(
             // モデルはRemoteConfigで差し替えられるようにする（アプリの更新なしに変えられる）
             model = ModelId(RemoteConfigProvider.openAIModel),
-            messages = buildOpenAIMessages(sendText),
+            messages = buildOpenAIMessages(text),
             maxTokens = RemoteConfigProvider.maxTokens
         )
 
@@ -1709,6 +1724,9 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
      * 今回の発言は[onClick]が並行して履歴に保存するため、読んだ時点で
      * 入っている場合と入っていない場合がある。最新の1件が今回の発言だった場合は
      * 落として、呼び出し側が必ず最後に1件だけ並べられるようにする。
+     *
+     * [sendText]は[truncateUserText]で切り詰めた本文。履歴の本文も同じように
+     * 切り詰めて比較するので、上限より長い履歴を再送しても二重に送られない。
      */
     private suspend fun loadContextMessages(sendText: String): List<ChatMessage> {
         val maxMessages = RemoteConfigProvider.maxContextMessages
@@ -1729,11 +1747,11 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         }
 
         val newest = latest.firstOrNull()
-        val history = if (newest != null && newest.userId == USER_ID_ME && newest.text == sendText) {
-            latest.drop(1)
-        } else {
-            latest.take(maxMessages)
-        }
+        val isNewestSameTurn = newest != null &&
+                newest.userId == USER_ID_ME &&
+                // 上限より長いまま保存されている履歴を再送した場合も同じ発言として扱う
+                truncateUserText(newest.text) == sendText
+        val history = if (isNewestSameTurn) latest.drop(1) else latest.take(maxMessages)
 
         // 新しい順に読んでいるので、文字数の上限は新しいものから詰めて古いものを落とす
         var remainingChars = maxChars
