@@ -8,9 +8,11 @@ import com.google.cloud.dialogflow.v2.*
 import com.aqua_ix.youbimiku.config.LanguageConfig
 import com.aqua_ix.youbimiku.config.getLanguage
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Dialogflowとのやり取りを行う。
@@ -31,6 +33,10 @@ class DetectIntent(
 
         // クライアントの終了を待つ上限。終わらない場合も待ち続けないようにする
         private const val SHUTDOWN_TIMEOUT_IN_SECONDS = 5L
+
+        // 実行中の送信の完了を待つ上限と確認の間隔
+        private const val IN_FLIGHT_WAIT_TIMEOUT_IN_MILLIS = 3_000L
+        private const val IN_FLIGHT_WAIT_INTERVAL_IN_MILLIS = 100L
     }
 
     private class Clients(val sessions: SessionsClient, val contexts: ContextsClient)
@@ -47,6 +53,10 @@ class DetectIntent(
             isCreationRequested = true
             return lazyClients.value
         }
+
+    // 実行中の送信の数。同期RPCは割り込めないため、終了処理が実行中の送信と
+    // 競合しないように完了を待てるようにする
+    private val inFlightRequests = AtomicInteger(0)
 
     private fun createClients(): Clients {
         // fromStreamはストリームを閉じないので、useで確実に閉じる
@@ -78,9 +88,18 @@ class DetectIntent(
      * ディスパッチャに関わらず[Dispatchers.IO]の上で実行する。
      */
     suspend fun send(text: String): String = withContext(Dispatchers.IO) {
+        inFlightRequests.incrementAndGet()
+        try {
+            request(text)
+        } finally {
+            inFlightRequests.decrementAndGet()
+        }
+    }
+
+    private fun request(text: String): String {
         val shouldTranslate = getLanguage(context).equals(LanguageConfig.LANGUAGE_EN.name)
         val sendText = if (shouldTranslate) TranslateUtil.translateEnToJa(text) else text
-        val request = DetectIntentRequest.newBuilder()
+        val detectIntentRequest = DetectIntentRequest.newBuilder()
             .setQueryInput(
                 QueryInput.newBuilder()
                     .setText(
@@ -94,13 +113,13 @@ class DetectIntent(
             .setSession(SessionName.format(PROJECT_ID, session))
             .build()
 
-        val res = clients.sessions.detectIntent(request)
+        val res = clients.sessions.detectIntent(detectIntentRequest)
         if (shouldTranslate) {
-            return@withContext TranslateUtil.translateJaToEn(res.queryResult.fulfillmentText)
+            return TranslateUtil.translateJaToEn(res.queryResult.fulfillmentText)
         }
 
         Log.d(TAG, "response result : ${res.queryResult}")
-        res.queryResult.fulfillmentText
+        return res.queryResult.fulfillmentText
     }
 
     /**
@@ -116,8 +135,25 @@ class DetectIntent(
         }
         Application.applicationScope.launch {
             // 生成中の場合はlazyが完了を待つので、閉じ損なうことはない
+            awaitInFlightRequests()
             resetContexts()
             closeClients()
+        }
+    }
+
+    /**
+     * 実行中の送信が終わるのを待つ。
+     * 同期RPCの途中でクライアントを閉じると、応答を取りこぼしたうえに
+     * コンテキストの破棄も中途半端になるため。待ちきれない場合は諦めて先に進む。
+     */
+    private suspend fun awaitInFlightRequests() {
+        var waited = 0L
+        while (inFlightRequests.get() > 0 && waited < IN_FLIGHT_WAIT_TIMEOUT_IN_MILLIS) {
+            delay(IN_FLIGHT_WAIT_INTERVAL_IN_MILLIS)
+            waited += IN_FLIGHT_WAIT_INTERVAL_IN_MILLIS
+        }
+        if (inFlightRequests.get() > 0) {
+            Log.w(TAG, "Shutting down while a request is still running.")
         }
     }
 
