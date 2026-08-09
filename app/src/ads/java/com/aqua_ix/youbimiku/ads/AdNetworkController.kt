@@ -2,7 +2,6 @@ package com.aqua_ix.youbimiku.ads
 
 import android.os.Handler
 import android.os.Looper
-import android.util.Log
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -12,6 +11,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updateLayoutParams
+import com.aqua_ix.youbimiku.AppLog
 import com.aqua_ix.youbimiku.BuildConfig.BUILD_TYPE
 import com.aqua_ix.youbimiku.BuildConfig.IMOBILE_BANNER_SID
 import com.aqua_ix.youbimiku.BuildConfig.IMOBILE_INTERSTITIAL_SID
@@ -68,7 +68,7 @@ class AdNetworkController : AdController {
             }
 
             else -> {
-                Log.d(TAG, "Ad network is not configured: $adNetwork")
+                AppLog.d(TAG) { "Ad network is not configured: $adNetwork" }
                 return
             }
         }
@@ -113,13 +113,13 @@ class AdNetworkController : AdController {
 
         ImobileSdkAd.setImobileSdkAdListener(IMOBILE_BANNER_SID, object : ImobileSdkAdListener() {
             override fun onAdShowCompleted() {
-                Log.d(TAG, "ImobileSdkAd($IMOBILE_BANNER_SID) onAdReadyCompleted")
+                AppLog.d(TAG) { "iMobile banner: onAdShowCompleted" }
                 imobileBannerLayout.visibility = View.VISIBLE
                 onBannerHeightChanged(imobileBannerLayout.height)
             }
 
             override fun onFailed(reason: FailNotificationReason) {
-                Log.d(TAG, "ImobileSdkAd($IMOBILE_BANNER_SID) onFailed: $reason")
+                AppLog.d(TAG) { "iMobile banner: onFailed: $reason" }
                 imobileBannerLayout.visibility = View.INVISIBLE
                 onBannerHeightChanged(0)
             }
@@ -155,11 +155,11 @@ class AdNetworkController : AdController {
     }
 
     private fun onIronSourceInitialized(bannerLayout: IronSourceBannerLayout) {
-        Log.d(TAG, "IronSource initialized")
+        AppLog.d(TAG) { "IronSource initialized" }
         mainHandler.post {
             if (ironSourceBannerLayout !== bannerLayout) {
                 // Activityの破棄後に届いたコールバック。破棄済みのバナーをロードしない
-                Log.d(TAG, "IronSource is initialized after the banner was destroyed.")
+                AppLog.d(TAG) { "IronSource is initialized after the banner was destroyed." }
                 return@post
             }
             isIronSourceInitialized = true
@@ -179,7 +179,7 @@ class AdNetworkController : AdController {
             if (IronSource.isInterstitialReady()) {
                 return@post
             }
-            Log.d(TAG, "IronSource.loadInterstitial")
+            AppLog.d(TAG) { "IronSource.loadInterstitial" }
             isIronSourceInterstitialLoading = true
             IronSource.loadInterstitial()
         }
@@ -200,29 +200,29 @@ class AdNetworkController : AdController {
         bannerLayout.apply {
             levelPlayBannerListener = object : LevelPlayBannerListener {
                 override fun onAdLoaded(adInfo: AdInfo) {
-                    Log.d(TAG, "IronSource banner loaded: $adInfo")
+                    AppLog.d(TAG) { "IronSource banner loaded: $adInfo" }
                     onBannerHeightChanged(bannerLayout.height)
                 }
 
                 override fun onAdLoadFailed(error: IronSourceError) {
-                    Log.e(TAG, "IronSource banner load failed: $error")
+                    AppLog.w(TAG, "IronSource banner load failed: $error")
                     onBannerHeightChanged(0)
                 }
 
                 override fun onAdClicked(adInfo: AdInfo) {
-                    Log.d(TAG, "IronSource banner clicked: $adInfo")
+                    AppLog.d(TAG) { "IronSource banner clicked: $adInfo" }
                 }
 
                 override fun onAdScreenPresented(adInfo: AdInfo) {
-                    Log.d(TAG, "IronSource banner screen presented: $adInfo")
+                    AppLog.d(TAG) { "IronSource banner screen presented: $adInfo" }
                 }
 
                 override fun onAdScreenDismissed(adInfo: AdInfo) {
-                    Log.d(TAG, "IronSource banner screen dismissed: $adInfo")
+                    AppLog.d(TAG) { "IronSource banner screen dismissed: $adInfo" }
                 }
 
                 override fun onAdLeftApplication(adInfo: AdInfo) {
-                    Log.d(TAG, "IronSource banner left application: $adInfo")
+                    AppLog.d(TAG) { "IronSource banner left application: $adInfo" }
                 }
             }
 
@@ -250,35 +250,35 @@ class AdNetworkController : AdController {
     private fun initIronSourceInterstitial() {
         IronSource.setLevelPlayInterstitialListener(object : LevelPlayInterstitialListener {
             override fun onAdReady(adInfo: AdInfo) {
-                Log.d(TAG, "IronSource interstitial ready: $adInfo")
+                AppLog.d(TAG) { "IronSource interstitial ready: $adInfo" }
                 finishIronSourceInterstitialLoading()
             }
 
             override fun onAdLoadFailed(error: IronSourceError?) {
-                Log.e(TAG, "IronSource interstitial load failed: $error")
+                AppLog.w(TAG, "IronSource interstitial load failed: $error")
                 // ここで即座に要求し直すと失敗を繰り返すため、次の表示要求のときにロードし直す
                 finishIronSourceInterstitialLoading()
             }
 
             override fun onAdOpened(adInfo: AdInfo) {
-                Log.d(TAG, "IronSource interstitial opened: $adInfo")
+                AppLog.d(TAG) { "IronSource interstitial opened: $adInfo" }
             }
 
             override fun onAdShowSucceeded(adInfo: AdInfo) {
-                Log.d(TAG, "IronSource interstitial show succeeded: $adInfo")
+                AppLog.d(TAG) { "IronSource interstitial show succeeded: $adInfo" }
             }
 
             override fun onAdShowFailed(error: IronSourceError?, adInfo: AdInfo) {
-                Log.e(TAG, "IronSource interstitial show failed: $error, $adInfo")
+                AppLog.w(TAG, "IronSource interstitial show failed: $error, $adInfo")
                 loadIronSourceInterstitial()
             }
 
             override fun onAdClicked(adInfo: AdInfo) {
-                Log.d(TAG, "IronSource interstitial clicked: $adInfo")
+                AppLog.d(TAG) { "IronSource interstitial clicked: $adInfo" }
             }
 
             override fun onAdClosed(adInfo: AdInfo) {
-                Log.d(TAG, "IronSource interstitial closed: $adInfo")
+                AppLog.d(TAG) { "IronSource interstitial closed: $adInfo" }
                 // 表示すると在庫が消費されるため、次の表示に備えてロードし直す
                 loadIronSourceInterstitial()
             }
@@ -289,31 +289,31 @@ class AdNetworkController : AdController {
         return when (adNetwork) {
             RemoteConfigKey.AdNetwork.IMOBILE -> {
                 if (ImobileSdkAd.isShowAd(IMOBILE_INTERSTITIAL_SID)) {
-                    Log.d(TAG, "ImobileSdkAd.showAd")
+                    AppLog.d(TAG) { "ImobileSdkAd.showAd" }
                     ImobileSdkAd.showAd(activity, IMOBILE_INTERSTITIAL_SID)
                     true
                 } else {
-                    Log.d(TAG, "iMobile interstitial is not ready.")
+                    AppLog.d(TAG) { "iMobile interstitial is not ready." }
                     false
                 }
             }
 
             RemoteConfigKey.AdNetwork.IRONSOURCE -> {
                 if (IronSource.isInterstitialReady()) {
-                    Log.d(TAG, "IronSource.showInterstitial")
+                    AppLog.d(TAG) { "IronSource.showInterstitial" }
                     IronSource.showInterstitial()
                     true
                 } else {
                     // 在庫がないまま呼ぶと「no ads are available」で空振りするため、
                     // 表示せずにロードだけ進めて次の機会に回す
-                    Log.d(TAG, "IronSource interstitial is not ready.")
+                    AppLog.d(TAG) { "IronSource interstitial is not ready." }
                     loadIronSourceInterstitial()
                     false
                 }
             }
 
             else -> {
-                Log.d(TAG, "Ad network is not initialized.")
+                AppLog.d(TAG) { "Ad network is not initialized." }
                 false
             }
         }
@@ -361,6 +361,6 @@ class AdNetworkController : AdController {
     }
 
     companion object {
-        val TAG = AdNetworkController::class.java.name.toString()
+        private const val TAG = "AdNetworkController"
     }
 }

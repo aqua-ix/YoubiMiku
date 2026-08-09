@@ -1,7 +1,6 @@
 package com.aqua_ix.youbimiku
 
 import android.content.Context
-import android.util.Log
 import android.widget.EditText
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
@@ -17,6 +16,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
+/**
+ * 通報の送信。
+ *
+ * 通報する本文と通信先のURLはログに出さない（[TranslateUtil]と同じ理由で、
+ * Ktorのタイムアウト例外がメッセージにURLを埋め込むため[AppLog]を通す）。
+ */
 object ReportUtil {
 
     private const val TAG = "ReportUtil"
@@ -90,13 +95,13 @@ object ReportUtil {
         }
         val isSuccess = response.status.isSuccess()
         if (!isSuccess) {
-            Log.e(TAG, "Unexpected status code: ${response.status.value}")
+            AppLog.e(TAG, "Unexpected status code: ${response.status.value}")
         }
         isSuccess
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
-        Log.e(TAG, "Failed to report the message.", e)
+        AppLog.e(TAG, "Failed to report the message.", e)
         false
     }
 }

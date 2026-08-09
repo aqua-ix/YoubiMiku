@@ -1,7 +1,6 @@
 package com.aqua_ix.youbimiku
 
 import android.content.Context
-import android.util.Log
 import com.google.api.gax.core.FixedCredentialsProvider
 import com.google.auth.oauth2.GoogleCredentials
 import com.google.cloud.dialogflow.v2.*
@@ -129,8 +128,11 @@ class DetectIntent(
             return TranslateUtil.translateJaToEn(res.queryResult.fulfillmentText).getOrThrow()
         }
 
-        Log.d(TAG, "response result : ${res.queryResult}")
-        return res.queryResult.fulfillmentText
+        // QueryResultにはユーザーの発言（queryText）と応答の本文が丸ごと入るため出力しない。
+        // 応答が取れているかどうかは長さで分かる
+        val fulfillmentText = res.queryResult.fulfillmentText
+        AppLog.d(TAG) { "The response is received: ${fulfillmentText.length} chars" }
+        return fulfillmentText
     }
 
     /**
@@ -168,7 +170,7 @@ class DetectIntent(
             waited += IN_FLIGHT_WAIT_INTERVAL_IN_MILLIS
         }
         if (inFlightRequests.get() > 0) {
-            Log.w(TAG, "Shutting down while a request is still running.")
+            AppLog.w(TAG, "Shutting down while a request is still running.")
         }
     }
 
@@ -177,7 +179,7 @@ class DetectIntent(
             clients.contexts.deleteAllContexts(SessionName.format(PROJECT_ID, session))
         } catch (e: Exception) {
             // 終了時の後片付けなので、失敗しても次回の会話には影響しない
-            Log.e(TAG, "Failed to reset the contexts.", e)
+            AppLog.e(TAG, "Failed to reset the contexts.", e)
         }
     }
 
@@ -189,7 +191,7 @@ class DetectIntent(
             clients.sessions.awaitTermination(SHUTDOWN_TIMEOUT_IN_SECONDS, TimeUnit.SECONDS)
             clients.contexts.awaitTermination(SHUTDOWN_TIMEOUT_IN_SECONDS, TimeUnit.SECONDS)
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to close the clients.", e)
+            AppLog.e(TAG, "Failed to close the clients.", e)
         }
     }
 }

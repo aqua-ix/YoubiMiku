@@ -1,6 +1,5 @@
 package com.aqua_ix.youbimiku
 
-import android.util.Log
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
 import io.ktor.client.statement.bodyAsText
@@ -17,6 +16,14 @@ import java.io.IOException
  *
  * 失敗は[Result]で返す。エラー文言を翻訳結果として返すと呼び出し側が成功と区別できず、
  * ミクの発言としてそのまま表示されてしまうため。
+ *
+ * 翻訳する本文と通信先のURLはどちらもログに出さない。本文はユーザーの発言そのもので、
+ * URLは`secrets.properties`の値だが、Ktorのタイムアウト例外はメッセージにURLを埋め込む。
+ * 例外を[AppLog]経由で出すことで、メッセージもスタックトレースも伏せた形になる。
+ *
+ * 失敗をCrashlyticsに記録するのは呼び出し側に任せる（ここでは[AppLog.w]でログだけに留める）。
+ * [DetectIntent]が`getOrThrow()`で同じ例外を投げ直し、[MainActivity.runAITask]が
+ * 受け止めて記録するため、ここでも記録すると1回の失敗が2件の非致命的例外として送られてしまう。
  */
 object TranslateUtil {
 
@@ -44,7 +51,8 @@ object TranslateUtil {
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
-        Log.e(TAG, "Failed to translate into $target.", e)
+        // 記録は呼び出し側（runAITask）が行う。ここで記録すると同じ失敗が2件になる
+        AppLog.w(TAG, "Failed to translate into $target.", e)
         Result.failure(e)
     }
 }
