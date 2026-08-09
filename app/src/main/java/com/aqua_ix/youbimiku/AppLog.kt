@@ -6,6 +6,8 @@ import java.io.PrintWriter
 import java.io.StringWriter
 import java.net.MalformedURLException
 import java.net.URL
+import java.util.Collections
+import java.util.IdentityHashMap
 
 /**
  * ログ出力とCrashlyticsへの記録をまとめる薄いラッパー。
@@ -28,7 +30,7 @@ import java.net.URL
  */
 object AppLog {
 
-    /** 原因を辿る深さの上限。causeが循環していても止まるようにする */
+    /** 例外を辿る深さの上限。cause・suppressedが深く積み重なっていても止まるようにする */
     private const val MAX_CAUSE_DEPTH = 10
 
     /**
@@ -156,20 +158,31 @@ object AppLog {
     /**
      * 例外のどこかにシークレットが含まれているかを返す。
      *
-     * causeの連鎖だけでなくsuppressedも見る。Crashlyticsが送るのはcauseの連鎖だけだが、
-     * 判定を送信側の実装に依存させず、「例外のどこかにあれば伏せる」で揃えておく。
+     * causeの連鎖だけでなくsuppressedとその先も辿る。Crashlyticsが送るのはcauseの
+     * 連鎖だけだが、判定を送信側の実装に依存させず、「例外のどこかにあれば伏せる」で
+     * 揃えておく。一度見た例外は二度辿らないので、causeやsuppressedが循環していても止まる。
      */
-    private fun containsSecret(throwable: Throwable): Boolean =
-        causesOf(throwable).any { cause ->
-            (sequenceOf(cause) + cause.suppressed.asSequence()).any {
-                val message = it.message
-                message != null && redact(message) != message
+    private fun containsSecret(throwable: Throwable): Boolean {
+        val seen = Collections.newSetFromMap(IdentityHashMap<Throwable, Boolean>())
+        val pending = ArrayDeque<Pair<Throwable, Int>>()
+        pending.addLast(throwable to 0)
+        while (pending.isNotEmpty()) {
+            val (current, depth) = pending.removeLast()
+            if (!seen.add(current)) {
+                continue
             }
+            val message = current.message
+            if (message != null && redact(message) != message) {
+                return true
+            }
+            if (depth >= MAX_CAUSE_DEPTH) {
+                continue
+            }
+            current.cause?.let { pending.addLast(it to depth + 1) }
+            current.suppressed.forEach { pending.addLast(it to depth + 1) }
         }
-
-    private fun causesOf(throwable: Throwable): Sequence<Throwable> =
-        generateSequence(throwable) { if (it.cause === it) null else it.cause }
-            .take(MAX_CAUSE_DEPTH)
+        return false
+    }
 
     /**
      * メッセージを伏せた例外の写しを作る。
