@@ -66,6 +66,50 @@ class AppLogRedactionTest {
     }
 
     /**
+     * 名前解決の失敗はスキームを含まない形でホスト名を持つ。
+     * 値そのものにしか一致しないと通信先が伏せられずにCrashlyticsまで届く。
+     */
+    @Test
+    fun redactSecrets_masksTheBareHost() {
+        val message = "java.net.UnknownHostException: Unable to resolve host " +
+                "\"avatar.example.com\": No address associated with hostname"
+
+        val redacted = redactSecrets(message, patterns)
+
+        assertFalse(redacted.contains("avatar.example.com"))
+        assertTrue(redacted.contains("No address associated with hostname"))
+    }
+
+    /** 接続の失敗はホスト名に解決したIPアドレスを添えて出るため、そちらも伏せる */
+    @Test
+    fun redactSecrets_masksTheBareHostWithItsAddress() {
+        val message = "failed to connect to avatar.example.com/203.0.113.1 (port 443) after 10000ms"
+
+        val redacted = redactSecrets(message, patterns)
+
+        assertFalse(redacted.contains("avatar.example.com"))
+        assertFalse(redacted.contains("203.0.113.1"))
+        assertEquals("failed to connect to $MASK (port 443) after 10000ms", redacted)
+    }
+
+    /** ホスト名の一部として続いているだけの別の通信先は伏せない */
+    @Test
+    fun redactSecrets_keepsOtherHosts() {
+        val message = "GET https://notavatar.example.com/ping failed"
+
+        assertEquals(message, redactSecrets(message, patterns))
+    }
+
+    /** URLでないシークレット（DialogflowのプロジェクトID）はホスト名を持たない */
+    @Test
+    fun buildSecretPatterns_acceptsValuesThatAreNotUrls() {
+        val projectId = "youbimiku-dummy-1234"
+        val withProjectId = buildSecretPatterns(listOf(projectId))
+
+        assertEquals(MASK, redactSecrets(projectId, withProjectId))
+    }
+
+    /**
      * 空文字や短い値からパターンを作るとあらゆる位置に一致し、行全体が伏せられてしまう。
      * 未設定のシークレットが混ざっても他のログを潰さないことを確かめる。
      */
@@ -73,18 +117,21 @@ class AppLogRedactionTest {
     fun buildSecretPatterns_dropsValuesThatAreTooShort() {
         val withUnset = buildSecretPatterns(listOf("", " ", "short", translateEndPoint))
 
-        assertEquals(1, withUnset.size)
-        assertEquals("hello", redactSecrets("hello", withUnset))
+        assertEquals("hello short", redactSecrets("hello short", withUnset))
+        assertEquals(MASK, redactSecrets(translateEndPoint, withUnset))
     }
 
     /** 正規表現の記号を含む値でもパターンとして壊れない */
     @Test
     fun buildSecretPatterns_escapesRegexCharacters() {
-        val secret = "https://example.com/a+b(c)?d"
+        val secret = "https://escaped.example.com/a+b(c)?d"
         val escaped = buildSecretPatterns(listOf(secret))
 
         assertTrue(escaped.isNotEmpty())
         assertEquals(MASK, redactSecrets(secret, escaped))
-        assertEquals("https://example.com/aXb", redactSecrets("https://example.com/aXb", escaped))
+        assertEquals(
+            "GET https://other.example.org/aXb",
+            redactSecrets("GET https://other.example.org/aXb", escaped),
+        )
     }
 }

@@ -4,6 +4,8 @@ import android.util.Log
 import com.google.firebase.crashlytics.FirebaseCrashlytics
 import java.io.PrintWriter
 import java.io.StringWriter
+import java.net.MalformedURLException
+import java.net.URL
 
 /**
  * ログ出力とCrashlyticsへの記録をまとめる薄いラッパー。
@@ -214,13 +216,41 @@ private const val URL_TAIL_PATTERN = """[^\s,)\]}'"]*"""
 private val API_KEY_PATTERN = Regex("sk-[A-Za-z0-9_-]{8,}")
 
 /**
+ * ホスト名だけを伏せるときに、その手前で切らないための境界。
+ *
+ * ホスト名の一部として続いている場合（`notavatar.example.com`）は別の通信先なので伏せない。
+ * 境界を見ずに部分一致で伏せると、関係のない通信先のログまで読めなくなる。
+ */
+private const val HOST_BOUNDARY_PATTERN = """(?<![A-Za-z0-9.\-])"""
+
+/**
  * 伏せる値から、続くパス・クエリまで含めて拾うパターンを作る。
  * 短すぎる値は[MIN_SECRET_LENGTH]で落とす。
+ *
+ * URLのシークレットは、スキームを含む値そのものに加えて**ホスト名だけのパターン**も作る。
+ * 名前解決の失敗はスキームを含まない形（`Unable to resolve host "<ホスト>": ...`）で
+ * ホスト名を持つため、値そのものだけを見ていると通信先が伏せられずに残る。
+ *
+ * 値そのもののパターンを先に並べる。ホスト名のパターンを先に当てると
+ * `https://` が残り、続くパス・クエリを取りこぼす。
  */
-internal fun buildSecretPatterns(secrets: List<String>): List<Regex> =
-    secrets
+internal fun buildSecretPatterns(secrets: List<String>): List<Regex> {
+    val values = secrets.filter { it.length >= MIN_SECRET_LENGTH }
+    val fullValuePatterns = values.map { Regex(Regex.escape(it) + URL_TAIL_PATTERN) }
+    val hostPatterns = values
+        .mapNotNull { hostOf(it) }
+        .distinct()
         .filter { it.length >= MIN_SECRET_LENGTH }
-        .map { Regex(Regex.escape(it) + URL_TAIL_PATTERN) }
+        .map { Regex(HOST_BOUNDARY_PATTERN + Regex.escape(it) + URL_TAIL_PATTERN) }
+    return fullValuePatterns + hostPatterns
+}
+
+/** URLでないシークレット（DialogflowのプロジェクトIDなど）はホスト名を持たない */
+private fun hostOf(value: String): String? = try {
+    URL(value).host?.takeIf { it.isNotBlank() }
+} catch (e: MalformedURLException) {
+    null
+}
 
 /** [patterns]に一致する箇所とAPIキーを[MASK]に置き換える */
 internal fun redactSecrets(message: String, patterns: List<Regex>): String {
