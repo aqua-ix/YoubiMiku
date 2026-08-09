@@ -82,7 +82,9 @@ object RemoteConfigProvider {
                         // リモートの値が使えるなら、デフォルト値の適用が失敗していても値は読める
                         isDefaultsApplied = true
                     } else {
-                        AppLog.e(
+                        // 圏外での起動でも失敗する。デフォルト値と前回のキャッシュで
+                        // 続行できる想定内の失敗なので、記録はせずログに残すだけにする
+                        AppLog.w(
                             TAG,
                             "Failed to fetch remote config. Fall back to defaults.",
                             task.exception
