@@ -1110,12 +1110,18 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         }.toTypedArray()
         val aiModelNames = aiModels.map { getDisplayName(this, it) }.toTypedArray()
         val currentIndex = aiModels.indexOfFirst { it.name == getAIModel(this) }
+        // ダイアログを開いている間の選択。押すたびに設定へ反映されるため追いかける
+        var selectedIndex = currentIndex
 
         val builder = AlertDialog.Builder(this)
             .setTitle(getString(R.string.setting_ai_model))
             .setSingleChoiceItems(aiModelNames, currentIndex) { dialog, which ->
                 setAIModel(this, aiModels[which])
-                Analytics.logModelChange(aiModels[which].name)
+                // 選択中の行を押し直しても呼ばれるため、実際に変わったときだけ記録する
+                if (which != selectedIndex) {
+                    Analytics.logModelChange(aiModels[which].name)
+                }
+                selectedIndex = which
                 mikuAccount = getMikuAccountFromAIModel()
                 (dialog as AlertDialog).getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = true
                 invalidateOptionsMenu()
