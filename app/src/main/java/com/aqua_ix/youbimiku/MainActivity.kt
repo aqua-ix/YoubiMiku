@@ -245,7 +245,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                 // アバターページ内の履歴を辿る
                 webView.goBack()
             } else {
-                toggleAvatarMode(false)
+                toggleAvatarMode(false, userAction = true)
             }
         }
     }
@@ -813,9 +813,10 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
                 avatarCredentialsFailed = false
                 if (pendingAvatarMode) {
-                    // 認証情報の到着を待っていた切り替え要求を再開する
+                    // 認証情報の到着を待っていた切り替え要求を再開する。
+                    // 待たされたのは操作の直後なので、利用者の操作による切り替えとして扱う
                     pendingAvatarMode = false
-                    toggleAvatarMode(true)
+                    toggleAvatarMode(true, userAction = true)
                 } else if (getUIMode(this@MainActivity) != "") {
                     toggleAvatarMode(getUIMode(this@MainActivity) == UIModeConfig.AVATAR.name)
                 }
@@ -854,7 +855,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             .setTitle(getString(R.string.avatar_mode_message_title))
             .setMessage(getString(R.string.avatar_mode_message_text))
             .setPositiveButton(R.string.avatar_mode_message_accept) { _, _ ->
-                toggleAvatarMode(true)
+                toggleAvatarMode(true, userAction = true)
 
                 // 初回起動時にアバターモードを選択した場合はチャットモードをOpenAIに設定
                 setAIModel(this, AIModelConfig.OPEN_AI)
@@ -1299,15 +1300,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
             1 -> {
-                val wasAvatarMode = isAvatarMode
-                toggleAvatarMode()
-                // 起動時の復帰では数えず、切り替えが実際に成立したときだけ記録する
-                // （認証情報が届いていない場合はモードが変わらない）
-                if (isAvatarMode != wasAvatarMode) {
-                    Analytics.logModeChange(
-                        if (isAvatarMode) UIModeConfig.AVATAR.name else UIModeConfig.CHAT.name
-                    )
-                }
+                toggleAvatarMode(userAction = true)
                 true
             }
 
@@ -1355,7 +1348,14 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         }
     }
 
-    private fun toggleAvatarMode(enable: Boolean = !isAvatarMode) {
+    /**
+     * 表示モードを切り替える。
+     *
+     * [userAction]は利用者の操作による切り替えかどうか。起動時の復帰と区別して、
+     * 操作で実際に切り替わったときだけAnalyticsに記録する。認証情報の到着を待つ場合は
+     * ここを一度素通りして後から呼ばれ直すため、記録は呼び出し側ではなくこの中で行う。
+     */
+    private fun toggleAvatarMode(enable: Boolean = !isAvatarMode, userAction: Boolean = false) {
         if (enable && (avatarClientId.isEmpty() || avatarClientSecret.isEmpty())) {
             if (avatarCredentialsFailed) {
                 // 取得結果が空だった場合は待っても届かないので、その場でエラーにする
@@ -1372,11 +1372,16 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             return
         }
 
+        val wasAvatarMode = isAvatarMode
         isAvatarMode = enable
         val uiMode = if (isAvatarMode) UIModeConfig.AVATAR else UIModeConfig.CHAT
         setUIMode(this, uiMode)
         // アバターモードだけで起きるクラッシュ（WebView周り）を切り分けられるようにする
         AppLog.setCustomKey(CrashlyticsKey.UI_MODE, uiMode.name)
+        // 同じモードへの切り替え（起動直後のチャットモードなど）は数えない
+        if (userAction && isAvatarMode != wasAvatarMode) {
+            Analytics.logModeChange(uiMode.name)
+        }
         avatarModeBackCallback.isEnabled = isAvatarMode
         invalidateOptionsMenu()
 
