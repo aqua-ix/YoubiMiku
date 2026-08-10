@@ -1,3 +1,5 @@
+
+
 YoubiMiku / ユビキタ初音ミク
 ====
 
@@ -13,6 +15,10 @@ Let's talk to Hatsune Miku.
 - Copy [secrets.defaults.properties](./secrets.defaults.properties) to `secrets.properties` and set the required values.
 - Place the Firebase setting file in `app/google-services.json`
 - Place the Dialogflow secret in `app/src/main/res/raw/dialogflow_secret.json`.
+
+## Build
+
+- Run `./gradlew assembleDebug` to build the debug APKs.
 
 ## Credit
 
