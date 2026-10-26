@@ -15,7 +15,7 @@ android {
     compileSdk = 36
     defaultConfig {
         applicationId = "comviewaquahp.google.sites.youbimiku"
-        minSdk = 23
+        minSdk = 24
         targetSdk = 36
         versionCode = 42
         versionName = "9.1"
