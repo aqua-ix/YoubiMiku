@@ -64,21 +64,19 @@ import com.aqua_ix.youbimiku.config.getDisplayName
 import com.aqua_ix.youbimiku.config.getFontSizeType
 import com.aqua_ix.youbimiku.config.getLanguage
 import com.aqua_ix.youbimiku.config.getMessageCountForAd
-import com.aqua_ix.youbimiku.config.getSupportRequestCount
 import com.aqua_ix.youbimiku.config.getUIMode
-import com.aqua_ix.youbimiku.config.isSupporter
 import com.aqua_ix.youbimiku.config.migrateMessageCountForAd
 import com.aqua_ix.youbimiku.config.setAIModel
 import com.aqua_ix.youbimiku.config.setFontSize
 import com.aqua_ix.youbimiku.config.setMessageCountForAd
-import com.aqua_ix.youbimiku.config.setSupporter
-import com.aqua_ix.youbimiku.config.setSupportRequestCount
 import com.aqua_ix.youbimiku.config.setUIMode
 import com.aqua_ix.youbimiku.database.AppDatabase
 import com.aqua_ix.youbimiku.database.MessageEntity
 import com.aqua_ix.youbimiku.database.entityToMessage
 import com.aqua_ix.youbimiku.database.messageToEntity
 import com.aqua_ix.youbimiku.databinding.ActivityMainBinding
+import com.aqua_ix.youbimiku.support.SupportController
+import com.aqua_ix.youbimiku.support.SupportControllerFactory
 import com.github.bassaer.chatmessageview.model.Message
 import com.google.android.play.core.review.ReviewManagerFactory
 import com.google.api.gax.rpc.UnavailableException
@@ -122,6 +120,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     private lateinit var appDatabase: AppDatabase
     private lateinit var navMenu: Menu
     private val adController: AdController = AdControllerFactory.create()
+    private val supportController: SupportController = SupportControllerFactory.create()
 
     private var isAvatarMode = false
 
@@ -1205,69 +1204,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         }
     }
 
-    private fun openUrl(url: String) {
-        try {
-            val uri = Uri.parse(url)
-            if (uri.scheme != "http" && uri.scheme != "https") return
-            startActivity(Intent(Intent.ACTION_VIEW, uri))
-        } catch (e: Exception) {
-            Toast.makeText(this, getString(R.string.support_url_error), Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    private fun showSupportDialog(requireUrls: Boolean = false) {
-        val links = parseSupportLinks(RemoteConfigProvider.supportLinksJson)
-
-        if (requireUrls && links.isEmpty()) return
-
-        val view = layoutInflater.inflate(R.layout.dialog_support, null)
-        val dialog = AlertDialog.Builder(this)
-            .setView(view)
-            .setNegativeButton(R.string.support_later, null)
-            .setNeutralButton(R.string.support_already) { _, _ ->
-                setSupporter(applicationContext)
-                invalidateOptionsMenu()
-            }
-            .create()
-
-        val container = view.findViewById<android.widget.LinearLayout>(R.id.support_buttons_container)
-        val params = android.widget.LinearLayout.LayoutParams(
-            android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
-            resources.getDimensionPixelSize(R.dimen.support_button_height)
-        ).also { it.bottomMargin = resources.getDimensionPixelSize(R.dimen.support_button_margin) }
-
-        links.forEach { (name, url) ->
-            val button = android.widget.Button(this).apply {
-                layoutParams = params
-                text = getString(R.string.support_button_label, name)
-                isAllCaps = false
-                setTextColor(android.graphics.Color.WHITE)
-                backgroundTintList = android.content.res.ColorStateList.valueOf(
-                    androidx.core.content.ContextCompat.getColor(context, R.color.colorPrimary)
-                )
-                setOnClickListener { openUrl(url); dialog.dismiss() }
-            }
-            container.addView(button)
-        }
-
-        dialog.show()
-    }
-
-    private fun parseSupportLinks(json: String): List<Pair<String, String>> {
-        return try {
-            val array = org.json.JSONArray(json)
-            (0 until array.length()).mapNotNull { i ->
-                val obj = array.getJSONObject(i)
-                val name = obj.optString("name")
-                val url = obj.optString("url")
-                if (name.isNotEmpty() && url.isNotEmpty()) name to url else null
-            }
-        } catch (e: Exception) {
-            AppLog.e(TAG, "Failed to parse support_links.", e)
-            emptyList()
-        }
-    }
-
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         val inflater = menuInflater
         inflater.inflate(R.menu.menu, menu)
@@ -1283,8 +1219,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
 
         menu.findItem(R.id.avatar_mode_reload).isVisible = isAvatarMode
 
-        val hasSupportLinks = parseSupportLinks(RemoteConfigProvider.supportLinksJson).isNotEmpty()
-        menu.findItem(R.id.support_developer).isVisible = hasSupportLinks
+        supportController.setupMenu(this, menu)
 
         menu.add(Menu.NONE, 1, Menu.NONE, R.string.avatar_mode)
             .setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
@@ -1345,12 +1280,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                 true
             }
 
-            R.id.support_developer -> {
-                showSupportDialog()
-                true
-            }
-
-            else -> super.onOptionsItemSelected(item)
+            else -> supportController.onOptionsItemSelected(this, item) ||
+                super.onOptionsItemSelected(item)
         }
     }
 
@@ -1438,7 +1369,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         // 送信したメッセージ数を数えるのはこのタイミングだけ。
         // 送信されなかったメッセージや再送信を数えないようにする
         showInterstitialIfNeeded()
-        showSupportDialogIfNeeded()
+        supportController.onMessageSent(this)
     }
 
     /**
@@ -1664,19 +1595,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         // ロードが終わっていない場合はカウントを持ち越して次の送信で表示し直す
         val isShown = adController.showInterstitial(this)
         setMessageCountForAd(applicationContext, if (isShown) 0 else count)
-    }
-
-    private fun showSupportDialogIfNeeded() {
-        val supportTimes = RemoteConfigProvider.supportDisplayRequestTimes
-        if (supportTimes == null || isSupporter(applicationContext)) return
-
-        val supportCount = getSupportRequestCount(applicationContext) + 1
-        setSupportRequestCount(applicationContext, supportCount)
-        if (supportCount >= supportTimes) {
-            AppLog.d(TAG) { "Support display request count: $supportCount" }
-            setSupportRequestCount(applicationContext, 0)
-            showSupportDialog(requireUrls = true)
-        }
     }
 
     private fun getDialogFlowSession(): String {

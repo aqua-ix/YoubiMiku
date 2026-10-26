@@ -73,7 +73,5 @@ enum class Key {
     LAUNCH_COUNT,
     AI_MODEL,
     MESSAGE_COUNT_FOR_AD,
-    SUPPORT_REQUEST_COUNT,
-    IS_SUPPORTER,
     UI_MODE
 }

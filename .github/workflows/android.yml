@@ -22,8 +22,10 @@ jobs:
         with:
           name: apk
           path: |
-            app/build/outputs/apk/ads/debug/app-ads-debug.apk
-            app/build/outputs/apk/noAds/debug/app-noAds-debug.apk
+            app/build/outputs/apk/adsSupport/debug/app-ads-support-debug.apk
+            app/build/outputs/apk/adsNoSupport/debug/app-ads-noSupport-debug.apk
+            app/build/outputs/apk/noAdsSupport/debug/app-noAds-support-debug.apk
+            app/build/outputs/apk/noAdsNoSupport/debug/app-noAds-noSupport-debug.apk
   lint:
     runs-on: ubuntu-latest
     steps:
