@@ -9,7 +9,7 @@ YoubiMiku (ユビキタ初音ミク) is an Android chat application where users 
 ## Build Commands
 
 ```bash
-./gradlew assembleDebug       # Build debug APKs (both ads and noAds flavors)
+./gradlew assembleDebug       # Build debug APKs (all 4 variants: ads/noAds x support/noSupport)
 ./gradlew assembleRelease     # Build release APKs
 ./gradlew test                # Run unit tests
 ./gradlew connectedCheck      # Run instrumentation tests (requires emulator/device)
@@ -27,7 +27,9 @@ YoubiMiku (ユビキタ初音ミク) is an Android chat application where users 
 
 - **Kotlin 1.9.23**, **AGP 8.7.2**, **JDK 17** (Temurin in CI), Java target 1.8
 - **Compile/Target SDK 36**, Min SDK 23
-- **Two product flavors**: `ads` (with ad SDKs) and `noAds` (ad-free), each with its own source set (`app/src/ads/`, `app/src/noAds/`) and manifest
+- **Two flavor dimensions** (`flavorDimensions += listOf("main", "support")`), giving four variants such as `adsSupportDebug`:
+  - `main`: `ads` (with ad SDKs) and `noAds` (ad-free), each with its own source set (`app/src/ads/`, `app/src/noAds/`) and manifest
+  - `support`: `support` (donation feature) and `noSupport` (no donation code, strings, layout or menu item in the APK), with source sets `app/src/support/`, `app/src/noSupport/`
 - Namespace: `com.aqua_ix.youbimiku`
 - ViewBinding enabled, Room schema exported via KSP
 
@@ -42,6 +44,7 @@ Single-module Android app with an activity-centric architecture. Nearly all UI l
 - **Config**: `config/` package — type-safe enums for AI model, font size, language, UI mode; `SharedPreferenceManager` wraps SharedPreferences; `RemoteConfigProvider` wraps Firebase RemoteConfig, which controls feature flags
 - **Data**: Room database (`database/` package) stores chat messages; Firebase Realtime DB stores API keys and credentials at runtime. Firebase also provides RemoteConfig, Analytics and Crashlytics
 - **Ads**: `ads/` package — `AdController` interface in `main`, implementations per flavor
+- **Support**: `support/` package — `SupportController` interface in `main`, implementations per flavor (`support` / `noSupport`)
 - **Observability**: `AppLog` (the only way the app writes to logcat, and the gate in front of Crashlytics), `Analytics` (Firebase Analytics events) — see [Logging and Crash Reporting](#logging-and-crash-reporting)
 - **Utilities**: `HttpClientProvider` (the shared HTTP client), `TranslateUtil` (EN↔JP translation), `ReportUtil` (message reporting) — see [Networking](#networking)
 
@@ -83,7 +86,7 @@ Two of those keys exist because of failures that were invisible before. `streame
 
 Both `_change` events count transitions, not taps. `mode_change` is logged inside `toggleAvatarMode()` — past the early return that defers the switch until the Cloudflare Access credentials arrive, so a switch the user had to wait for is still counted — and only when the caller passes `userAction = true`, which restoring the stored mode at startup does not. `model_change` compares the tapped row against the current selection, because `setSingleChoiceItems` calls back even when the already-selected row is tapped again.
 
-Crashlytics is enabled in both flavors and both build types (debug reports are what makes the pipeline verifiable). `mappingFileUploadEnabled` is off for debug and on for release; with minification still disabled (#24) release has no mapping file to send, so the setting only starts doing work when that lands.
+Crashlytics is enabled in all flavors and both build types (debug reports are what makes the pipeline verifiable). `mappingFileUploadEnabled` is off for debug and on for release; with minification still disabled (#24) release has no mapping file to send, so the setting only starts doing work when that lands.
 
 ### Networking
 
@@ -126,6 +129,10 @@ The reply is streamed (`chatCompletions`) into the "thinking" bubble, which `sho
 
 `R.drawable.normal` is the icon of every message Miku sends. It lives in `drawable-nodpi`, because a bitmap in `drawable/` counts as mdpi and `decodeResource` then scales it up by the screen density. It is decoded once into `MainActivity.mikuIcon` and shared by every `User` instance; `decodeSampledBitmap` (`BitmapUtil.kt`) shrinks it to the displayed size (`R.dimen.chat_icon_size`, which matches the library's `icon_normal`). Decoding it per message produced a ~21 MB bitmap each time at 420 dpi and got the process killed by `lowmemorykiller` once the history reached a few hundred messages.
 
+### Support (Donation) Integration
+
+The donation feature (menu item, dialog, "I'm already supporting", automatic display after N sent messages) exists only in the `support` flavor. `MainActivity` goes through the `SupportController` interface (`support/SupportController.kt` in the `main` source set) and obtains an instance from `SupportControllerFactory`, defined per flavor — `SupportDialogController` in `app/src/support/`, `NoOpSupportController` in `app/src/noSupport/`. The menu item is added by `setupMenu()` with the id `SupportController.MENU_ITEM_ID_SUPPORT` (not from `menu.xml`), and it is hidden while the `support_links` RemoteConfig value has no links. The layout, `support_*` strings and dimens live in `app/src/support/res/`. The SharedPreferences keys in `SupportConfig.kt` (`SUPPORT_REQUEST_COUNT`, `IS_SUPPORTER`) keep the strings of the former `Key` enum names so existing users' saved values carry over. `RemoteConfigProvider.supportDisplayRequestTimes` / `supportLinksJson`, their keys in `Constants.kt` and `remote_config_defaults.xml` stay in `main` (they are shared infrastructure and unused in `noSupport`).
+
 ### Ad Integration
 
 Two ad networks (iMobile, IronSource) switchable via RemoteConfig. Interstitial ads trigger after a configurable message count (`ad_display_request_times`). `MainActivity.showInterstitialIfNeeded()` counts every sent message regardless of the AI model in `Key.MESSAGE_COUNT_FOR_AD` (`config/AdConfig.kt`), then judges and resets in one synchronous place. `AdController.showInterstitial()` reports whether the ad was actually shown, so the count is kept — and retried on the next message — while the ad network has no inventory. Readiness checks and (re)loading stay inside `AdNetworkController`: IronSource loads from the `IronSource.init()` callback (loading earlier fails with "init() had failed") and again after `onAdClosed`.
@@ -141,7 +148,7 @@ Use Windows-side `gradlew.bat` from WSL to deploy to a connected device.
 /mnt/c/Users/souic/AppData/Local/Android/Sdk/platform-tools/adb.exe devices
 
 # Build and install
-cmd.exe /c "cd /d D:\\Development\\Project\\YoubiMiku && gradlew.bat installAdsDebug"
+cmd.exe /c "cd /d D:\\Development\\Project\\YoubiMiku && gradlew.bat installAdsSupportDebug"
 ```
 
 To launch the app after installation:

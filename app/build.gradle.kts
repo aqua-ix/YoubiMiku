@@ -48,13 +48,20 @@ android {
             }
         }
     }
-    flavorDimensions += listOf("main")
+    flavorDimensions += listOf("main", "support")
     productFlavors {
         create("ads") {
             dimension = "main"
         }
         create("noAds") {
             dimension = "main"
+        }
+        // 寄付（支援）機能。noSupport には寄付関連のコード・リソースを含めない
+        create("support") {
+            dimension = "support"
+        }
+        create("noSupport") {
+            dimension = "support"
         }
     }
     compileOptions {
