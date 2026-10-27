@@ -108,6 +108,9 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     private lateinit var binding: ActivityMainBinding
     private lateinit var detectIntent: DetectIntent
 
+    // AIモデル選択ダイアログ。メインスレッドからのみ触る
+    private var aiModelDialog: AlertDialog? = null
+
     // 初期化はRemoteConfigとFirebaseの取得後になるため、未初期化を判別できるようにnullableで持つ。
     // メインスレッドで入れ替えてコルーチンからも読むため@Volatileにする
     @Volatile
@@ -350,6 +353,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         showErrorMessage(getString(R.string.message_error_openai))
         mikuAccount.setName(getString(R.string.miku_name))
         setAIModel(this, AIModelConfig.DIALOG_FLOW)
+        // ダイアログがGPT選択のまま残ると、エラーの吹き出しが背後に隠れ、選ばれたと誤解されるため閉じる
+        aiModelDialog?.dismiss()
         if (::navMenu.isInitialized) {
             navMenu.findItem(R.id.setting_language).isVisible = true
         }
@@ -1124,11 +1129,22 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                 mikuAccount = getMikuAccountFromAIModel()
                 (dialog as AlertDialog).getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = true
                 invalidateOptionsMenu()
+                // 初期化に失敗するとonOpenAIError()でopenAIがnullに戻り、以後は誰もsetupOpenAI()を呼ばない。
+                // 「準備中」のまま残らないよう、GPT選択時に準備をやり直す。
+                // openAICredentialsがnullでなければ生成中なので、二重に始めない
+                // RemoteConfig未取得のうちは再試行しない（起動時の初期化がonRemoteConfigReady()で行われるため）
+                if (aiModels[which] == AIModelConfig.OPEN_AI && openAI == null && openAICredentials == null &&
+                    RemoteConfigProvider.isOpenAIEnabled == true
+                ) {
+                    setupOpenAI()
+                }
             }
             .setPositiveButton(R.string.setting_dialog_accept, null)
             .setCancelable(cancelable)
 
         val dialog = builder.create()
+        aiModelDialog = dialog
+        dialog.setOnDismissListener { if (aiModelDialog === dialog) aiModelDialog = null }
         dialog.show()
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = cancelable
     }
@@ -1860,6 +1876,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         }
         removeOpenAIListener()
         removeAvatarCredentialsListener()
+        aiModelDialog?.dismiss()
+        aiModelDialog = null
         scope.coroutineContext.cancel()
         if (::detectIntent.isInitialized) {
             // コンテキストの破棄はgRPCの通信になるためメインスレッドでは行えない。
