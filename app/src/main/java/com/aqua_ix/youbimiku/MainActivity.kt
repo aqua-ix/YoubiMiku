@@ -111,6 +111,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     // 初期化はRemoteConfigとFirebaseの取得後になるため、未初期化を判別できるようにnullableで持つ。
     // メインスレッドで入れ替えてコルーチンからも読むため@Volatileにする
     @Volatile
+    // AIモデル選択ダイアログ。メインスレッドからのみ触る
+    private var aiModelDialog: AlertDialog? = null
     private var openAI: OpenAI? = null
 
     // 生成に使った認証情報。リスナは初回とキャッシュ・再同期で複数回呼ばれるので、
@@ -350,6 +352,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         showErrorMessage(getString(R.string.message_error_openai))
         mikuAccount.setName(getString(R.string.miku_name))
         setAIModel(this, AIModelConfig.DIALOG_FLOW)
+        // ダイアログがGPT選択のまま残ると、エラーの吹き出しが背後に隠れ、選ばれたと誤解されるため閉じる
+        aiModelDialog?.dismiss()
         if (::navMenu.isInitialized) {
             navMenu.findItem(R.id.setting_language).isVisible = true
         }
@@ -1135,6 +1139,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
             .setCancelable(cancelable)
 
         val dialog = builder.create()
+        aiModelDialog = dialog
+        dialog.setOnDismissListener { if (aiModelDialog === dialog) aiModelDialog = null }
         dialog.show()
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = cancelable
     }
@@ -1866,6 +1872,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
         }
         removeOpenAIListener()
         removeAvatarCredentialsListener()
+        aiModelDialog?.dismiss()
+        aiModelDialog = null
         scope.coroutineContext.cancel()
         if (::detectIntent.isInitialized) {
             // コンテキストの破棄はgRPCの通信になるためメインスレッドでは行えない。
