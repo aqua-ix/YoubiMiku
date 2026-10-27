@@ -1131,7 +1131,10 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                 // 初期化に失敗するとonOpenAIError()でopenAIがnullに戻り、以後は誰もsetupOpenAI()を呼ばない。
                 // 「準備中」のまま残らないよう、GPT選択時に準備をやり直す。
                 // openAICredentialsがnullでなければ生成中なので、二重に始めない
-                if (aiModels[which] == AIModelConfig.OPEN_AI && openAI == null && openAICredentials == null) {
+                // RemoteConfig未取得のうちは再試行しない（起動時の初期化がonRemoteConfigReady()で行われるため）
+                if (aiModels[which] == AIModelConfig.OPEN_AI && openAI == null && openAICredentials == null &&
+                    RemoteConfigProvider.isOpenAIEnabled == true
+                ) {
                     setupOpenAI()
                 }
             }
