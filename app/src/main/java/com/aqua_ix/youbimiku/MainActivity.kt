@@ -108,11 +108,12 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
     private lateinit var binding: ActivityMainBinding
     private lateinit var detectIntent: DetectIntent
 
+    // AIモデル選択ダイアログ。メインスレッドからのみ触る
+    private var aiModelDialog: AlertDialog? = null
+
     // 初期化はRemoteConfigとFirebaseの取得後になるため、未初期化を判別できるようにnullableで持つ。
     // メインスレッドで入れ替えてコルーチンからも読むため@Volatileにする
     @Volatile
-    // AIモデル選択ダイアログ。メインスレッドからのみ触る
-    private var aiModelDialog: AlertDialog? = null
     private var openAI: OpenAI? = null
 
     // 生成に使った認証情報。リスナは初回とキャッシュ・再同期で複数回呼ばれるので、
