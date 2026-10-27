@@ -1124,6 +1124,12 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, DialogListener {
                 mikuAccount = getMikuAccountFromAIModel()
                 (dialog as AlertDialog).getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = true
                 invalidateOptionsMenu()
+                // 初期化に失敗するとonOpenAIError()でopenAIがnullに戻り、以後は誰もsetupOpenAI()を呼ばない。
+                // 「準備中」のまま残らないよう、GPT選択時に準備をやり直す。
+                // openAICredentialsがnullでなければ生成中なので、二重に始めない
+                if (aiModels[which] == AIModelConfig.OPEN_AI && openAI == null && openAICredentials == null) {
+                    setupOpenAI()
+                }
             }
             .setPositiveButton(R.string.setting_dialog_accept, null)
             .setCancelable(cancelable)
